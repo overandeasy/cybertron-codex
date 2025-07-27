@@ -7,7 +7,7 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
+node_modules/
 dist
 dist-ssr
 *.local
@@ -41,3 +41,6 @@ vite-env.d.ts
 
 # Build output
 build/
+
+# Note files
+project-notes.md
