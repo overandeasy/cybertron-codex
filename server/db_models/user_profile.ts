@@ -10,13 +10,13 @@ const userProfileSchema = new mongoose.Schema(
             required: true,
 
         },
-        first_name: { type: String },
-        last_name: { type: String },
+        first_name: { type: String, default: '' },
+        last_name: { type: String, default: '' },
         images: { type: [String], default: [] },
-        country: { type: String },
+        country: { type: String, default: '' },
         languages: { type: [String], default: [] },
-        faction: { type: String, enum: ['Autobot', 'Decepticon'] },
-        species: { type: String, enum: ['Cybertronian', 'Terran', 'Other'] },
+        faction: { type: String, enum: ['Autobot', 'Decepticon', ''], default: '' },
+        species: { type: String, enum: ['Cybertronian', 'Terran', 'Other'], default: 'Other' },
         bio: { type: String, default: '' },
         social_links: {
             type: {
@@ -30,7 +30,7 @@ const userProfileSchema = new mongoose.Schema(
                 linkedin: { type: String },
                 website: { type: String },
 
-            }
+            }, default: {}
         }
     }, { timestamps: true, collection: 'user_profiles' }) // Automatically manage createdAt and updatedAt fields
 

@@ -1,13 +1,12 @@
 import express from 'express';
-import { getAllUserProfiles, loginUser, registerUser } from '../controllers/user';
+import { getActiveUserProfile, getAllUserProfiles, loginUser, registerUser } from '../controllers/user';
 
 
 const userRouter = express.Router();
 
-userRouter.get("/users", getAllUserProfiles)
-userRouter.get("/users/:id", getAllUserProfiles);
-userRouter.post("/register", registerUser);
-userRouter.post("/login", loginUser);
+userRouter.get("/all", getAllUserProfiles);
+userRouter.get("/me", getActiveUserProfile);
+
 
 export default userRouter;
 

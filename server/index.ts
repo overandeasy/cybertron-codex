@@ -3,6 +3,8 @@ import cors from 'cors';
 import userRouter from './routes/user';
 import 'dotenv/config'; //Side-effect import - executes code when the module is imported, without importing any specific values or functions.
 import mongoose from 'mongoose';
+import { validateToken } from './middlewares/validateToken';
+import authRouter from './routes/auth';
 
 
 const app = express();
@@ -12,9 +14,10 @@ app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 app.use(cors())
 
-app.use('/api', userRouter)
+app.use('/api/auth', authRouter)
+app.use('/api/user', validateToken, userRouter)
 app.use('/*catchall', (req, res) => {
-    console.log(process.env.DB_URI)
+
     res.status(404).json({ error: "End point not Found" })
 })
 
