@@ -1,11 +1,14 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react-swc'
+import { reactRouter } from "@react-router/dev/vite";
+import tailwindcss from "@tailwindcss/vite";
+import { defineConfig } from "vite";
+import tsconfigPaths from "vite-tsconfig-paths";
 
-// https://vite.dev/config/
 export default defineConfig({
-  server: {
-    host: "127.0.0.1",
-    port: 5173,
+  plugins: [tailwindcss(), reactRouter(), tsconfigPaths()],
+  ssr: {
+    // This tells Vite to bundle `class-variance-authority` directly into
+    // the server build instead of trying to import it externally.
+    // This is the primary fix for the 'VariantProps' error.
+    noExternal: ["class-variance-authority"],
   },
-  plugins: [react()],
-})
+});

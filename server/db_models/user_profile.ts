@@ -1,6 +1,11 @@
 import mongoose from 'mongoose'; // Import Mongoose
 import { AuthModel } from './auth';
+export const SOCIAL_KEYS = [
+    'x', 'instagram', 'youtube', 'twitch', 'tiktok', 'discord',
+    'github', 'linkedin', 'wechat', 'weibo', 'rednote', 'douyin', 'website'
+];
 const userProfileSchema = new mongoose.Schema(
+
     {
         // Don't need _id field, Mongoose adds it automatically
         user_id: {
@@ -12,26 +17,23 @@ const userProfileSchema = new mongoose.Schema(
         },
         first_name: { type: String, default: '' },
         last_name: { type: String, default: '' },
-        images: { type: [String], default: [] },
+        images: { type: [String], default: ["https://res.cloudinary.com/dfzymwhck/image/upload/v1754151613/generic_profile_image_tv375n_e_background_removal_f_png_klqsrm.png"] },
         country: { type: String, default: '' },
-        languages: { type: [String], default: [] },
+        languages: { type: [Object], default: [{ name: "" }] },
         faction: { type: String, enum: ['Autobot', 'Decepticon', ''], default: '' },
         species: { type: String, enum: ['Cybertronian', 'Terran', 'Other'], default: 'Other' },
         bio: { type: String, default: '' },
         social_links: {
-            type: {
-                twitter: { type: String },
-                instagram: { type: String },
-                youtube: { type: String },
-                twitch: { type: String },
-                tiktok: { type: String },
-                discord: { type: String },
-                github: { type: String },
-                linkedin: { type: String },
-                website: { type: String },
-
-            }, default: {}
+            social_links: [
+                {
+                    key: { type: String, enum: SOCIAL_KEYS },
+                    value: { type: String }
+                }
+            ], default: []
         }
     }, { timestamps: true, collection: 'user_profiles' }) // Automatically manage createdAt and updatedAt fields
 
 export const UserProfileModel = mongoose.model('user_profiles', userProfileSchema);
+
+export type userProfileDocument = mongoose.InferSchemaType<typeof userProfileSchema>;
+// This type will be used to return user profile data in places, such as the updateUserProfile controller.

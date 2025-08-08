@@ -4,8 +4,9 @@ import { handleError } from "../utils/handleError";
 import { UserProfileModel } from "../db_models/user_profile";
 import { comparePassword, encryptPassword } from "../utils/encryptPassword";
 import generateToken from "../utils/generateToken";
+import { uploadImage } from "../utils/uploadImage";
 
-export const registerUser = async (req: Request, res: Response) => {
+export const signUp = async (req: Request, res: Response) => {
     try {
         console.log("Registering user with data:", req.body);
         if (!req.body) {
@@ -111,4 +112,85 @@ export const getActiveUserProfile = async (req: Request, res: Response) => {
     }
 
 
+}
+
+export const updateUserProfile = async (req: Request, res: Response) => {
+    try {
+        // First check if the user is authenticated
+        console.log("Updating user profile with data:", req.body);
+        if (!req.user) {
+            return res.status(401).json({ error: "Unauthorized access" });
+        }
+
+        // For safety, use Zod to parse the request data. For now, assume req.body is already validated.
+        const dataToUpdate: { [key: string]: any } = {
+            $push: {},
+            $set: {}
+        };
+
+        // If the request body contains fields to update, add them to dataToUpdate
+        console.log("Updating user profile with image file:", req.file);
+        if (req.file) {
+            const imageUrl = await uploadImage(req.file, req.user, res, `cybertron_codex/user_profile_images/${req.user?._id.toString()}`) as string | undefined;
+            imageUrl && (dataToUpdate.$push.images = imageUrl);
+        }
+
+        const { first_name, last_name, country, faction, species, bio, social_links } = req.body;
+        let { languages } = req.body;
+        console.log("Languages before processing:", languages, typeof languages);
+        // FIX: Parse languages if it's a stringified array
+        if (typeof languages === 'string') {
+            try {
+                languages = JSON.parse(languages);
+            } catch (e) {
+                console.error("Failed to parse languages string:", languages);
+                // Decide how to handle malformed string: ignore, or return error
+                return res.status(400).json({ error: "Invalid format for languages." });
+            }
+        }
+
+
+        console.log("Updating user profile with text data:", req.body);
+        if (first_name) {
+            dataToUpdate.$set.first_name = first_name;
+        }
+        if (last_name) {
+            dataToUpdate.$set.last_name = last_name;
+        }
+        if (country) {
+            dataToUpdate.$set.country = country;
+        }
+        if (languages && Array.isArray(languages)) {
+            dataToUpdate.$push.languages = { $each: languages };
+        }
+        if (faction) {
+            dataToUpdate.$set.faction = faction;
+        }
+        if (species) {
+            dataToUpdate.$set.species = species;
+        }
+        if (bio) {
+            dataToUpdate.$set.bio = bio;
+        }
+        if (social_links) {
+            dataToUpdate.$set.social_links = social_links;
+        }
+        if (Object.keys(dataToUpdate.$push).length === 0) {
+            delete dataToUpdate.$push; // Remove $push if it's empty
+        }
+        if (Object.keys(dataToUpdate.$set).length === 0) {
+            delete dataToUpdate.$set; // Remove $set if it's empty
+        }
+        if (Object.keys(dataToUpdate).length === 0) {
+            return res.status(400).json({ error: "No data to update" });
+        }
+        console.log("Final data to update:", dataToUpdate);
+        const updatedUserProfile = await UserProfileModel.findOneAndUpdate({ user_id: req.user._id }, dataToUpdate, { new: true });
+        res.status(200).json({ updated: true, userProfile: updatedUserProfile });
+        console.log("User profile updated successfully:", updatedUserProfile);
+
+    } catch (error) {
+        console.error("Error updating user profile:", error);
+        handleError(error, res);
+    }
 }

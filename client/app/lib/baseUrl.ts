@@ -1,0 +1,1 @@
+export const baseUrl = process.env.NODE_ENV === 'production' ? 'https://your-production-url.com/api' : 'http://localhost:5001/api';
