@@ -1,15 +1,15 @@
 import express from 'express';
 import { getActiveUserProfile, getAllUserProfiles, updateUserProfile } from '../controllers/user';
-import { handleFormDataFile, handleMulterResponse } from '../middlewares/handleFormDataFile';
+import { handleFormDataFile, handleMulterError, } from '../middlewares/handleFormDataFile';
 
 
 
 const userRouter = express.Router();
 
 userRouter.get("/all", getAllUserProfiles);
-userRouter.get("/me", getActiveUserProfile);
+userRouter.get("/my-profile", getActiveUserProfile);
 
-userRouter.patch("/me/edit", handleFormDataFile.single('profile_image'), handleMulterResponse, updateUserProfile);
+userRouter.post("/my-profile/edit", handleFormDataFile.single('new_profile_image'), updateUserProfile, handleMulterError);
 
 export default userRouter;
 

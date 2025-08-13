@@ -207,7 +207,8 @@ function Sidebar({
 
   return (
     <div
-      className="group peer text-sidebar-foreground hidden md:block"
+      // added bg-muted/50 to make the sidebar background visible. This attribute was missing in the original ShadCN code.
+      className="group peer bg-muted/50 text-sidebar-foreground hidden md:block"
       data-state={state}
       data-collapsible={state === "collapsed" ? collapsible : ""}
       data-variant={variant}

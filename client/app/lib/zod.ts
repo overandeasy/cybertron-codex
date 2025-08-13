@@ -141,3 +141,13 @@ export type UserProfile = Omit<z.infer<typeof userProfileFormSchema>, 'newImage'
     updatedAt: Date;
 }
 
+
+// Schema for image file validation for file upload in the EditMyProfile component
+export const imageFileSchema = z
+    .instanceof(File, { message: "File is required." })
+    .refine((file) => file.size <= 3 * 1024 * 1024, {
+        message: "Image must be 3MB or smaller.",
+    })
+    .refine((file) => file.type.startsWith("image/"), {
+        message: "Only image files are accepted.",
+    });

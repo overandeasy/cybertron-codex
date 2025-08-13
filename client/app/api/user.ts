@@ -1,7 +1,7 @@
 import { baseUrl } from "~/lib/baseUrl"
 
 export const getActiveUserProfile = async () => {
-    const response = await fetch(`${baseUrl}/user/me`, {
+    const response = await fetch(`${baseUrl}/user/my-profile`, {
         headers: {
             Authorization: `Bearer ${localStorage.getItem("token")}`,
         },
@@ -16,15 +16,21 @@ export const getActiveUserProfile = async () => {
 
 
 export const updateUserProfile = async (data: FormData) => {
-    const response = await fetch(`${baseUrl}/user/me/edit`, {
-        method: "PATCH",
-        headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-        body: data,
-    });
-    if (!response.ok) {
-        throw new Error("Failed to update user profile");
+    try {
+        const response = await fetch(`${baseUrl}/user/my-profile/edit`, {
+            method: "POST",
+            headers: {
+                Authorization: `Bearer ${localStorage.getItem("token")}`,
+            },
+            body: data,
+        });
+
+        return response;
+    } catch (error) {
+        console.error("Error updating user profile:", error);
+        throw error;
+
     }
-    return response.json();
+
+
 };

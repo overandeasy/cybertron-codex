@@ -1,9 +1,9 @@
-import { X } from "lucide-react";
+import { Check, X } from "lucide-react";
 import { cn } from "~/lib/utils";
 
 type ImageThumbnailsProps = {
   images: string[];
-  newImagePreview?: string; // 1. Add prop for the new image preview
+  newImage?: string; // 1. Add prop for the new image preview
   onRemove: (url: string) => void;
   onRemoveNew: () => void; // 2. Add a specific handler for removing the new image
   onSelect: (url: string) => void;
@@ -12,14 +12,14 @@ type ImageThumbnailsProps = {
 
 export function ImageThumbnails({
   images,
-  newImagePreview,
+  newImage,
   onRemove,
   onRemoveNew,
   onSelect,
   selectedImage,
 }: ImageThumbnailsProps) {
-  if (images.length === 0 && !newImagePreview) {
-    return <p className="text-sm text-muted-foreground">No images selected.</p>;
+  if (images.length === 0 && !newImage) {
+    return <p className="text-sm text-muted-foreground">No profile images.</p>;
   }
 
   return (
@@ -44,21 +44,35 @@ export function ImageThumbnails({
           >
             <X size={14} />
           </button>
+          {selectedImage === url && (
+            <div>
+              <div
+                className="absolute inset-0 flex items-center justify-center bg-accent-foreground opacity-20 rounded-md"
+                aria-label="Selected image"
+              ></div>
+              <div
+                className="absolute inset-0 flex items-center justify-center  rounded-md"
+                aria-label="Selected image"
+              >
+                <Check className="text-white" size={60} />
+              </div>
+            </div>
+          )}
         </div>
       ))}
       {/* 3. Render the new image thumbnail if it exists */}
-      {newImagePreview && (
-        <div key={newImagePreview} className="relative">
+      {newImage && (
+        <div key={newImage} className="relative">
           <img
-            src={newImagePreview}
+            src={newImage}
             alt="New image thumbnail"
             className={cn(
               "h-20 w-20 object-cover rounded-md cursor-pointer border-2",
-              selectedImage === newImagePreview
+              selectedImage === newImage
                 ? "border-blue-500"
                 : "border-transparent"
             )}
-            onClick={() => onSelect(newImagePreview)}
+            onClick={() => onSelect(newImage)}
           />
           <button
             type="button"
@@ -68,6 +82,20 @@ export function ImageThumbnails({
           >
             <X size={14} />
           </button>
+          {selectedImage === newImage && (
+            <div>
+              <div
+                className="absolute inset-0 flex items-center justify-center bg-accent-foreground opacity-20 rounded-md"
+                aria-label="Selected image"
+              ></div>
+              <div
+                className="absolute inset-0 flex items-center justify-center  rounded-md"
+                aria-label="Selected image"
+              >
+                <Check className="text-white" size={60} />
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

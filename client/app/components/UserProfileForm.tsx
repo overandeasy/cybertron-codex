@@ -1,11 +1,12 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useRef, useState } from "react";
+import { useEffect } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
-import { useNavigate, useRouteLoaderData } from "react-router";
+import { useNavigate } from "react-router";
 import {
   userProfileFormSchema,
   type UserProfile,
   type UserProfileFormData,
+  SOCIAL_KEYS,
 } from "~/lib/zod";
 
 import {
@@ -28,35 +29,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./ui/select";
-import { SOCIAL_KEYS } from "~/lib/zod";
 
-// 1. Add props to communicate with the parent
 type UserProfileFormProps = {
   userProfile: UserProfile;
-  onNewImageSelect: (file: File | undefined) => void;
+  onSubmit: (data: UserProfileFormData) => void;
+  isSubmitting: boolean;
 };
+
 export function UserProfileForm({
   userProfile,
-  onNewImageSelect,
+  onSubmit,
+  isSubmitting,
 }: UserProfileFormProps) {
   [...SOCIAL_KEYS].sort((a, b) => a.localeCompare(b)); // Ensure keys are sorted for consistent rendering
-  const loaderData = useRouteLoaderData("routes/appLayout");
+
   const navigate = useNavigate();
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [preview, setPreview] = useState<string | undefined>();
-
-  console.log("User profile in UserProfileForm:", userProfile);
-  console.log("userProfile.social_links:", userProfile.social_links);
-
-  // 1. Transform the social links data
-  const transformedSocialLinks = userProfile.social_links
-    ?.map((link) => {
-      const key = Object.keys(link)[0] as (typeof SOCIAL_KEYS)[number];
-      const value = Object.values(link)[0];
-      return { key, value };
-    })
-    .sort((a, b) => a.key.localeCompare(b.key));
+  //   console.log("User profile in UserProfileForm:", userProfile);
+  //   console.log("userProfile.social_links:", userProfile.social_links);
 
   const form = useForm<UserProfileFormData>({
     resolver: zodResolver(userProfileFormSchema),
@@ -69,9 +59,30 @@ export function UserProfileForm({
       faction: userProfile.faction ?? undefined,
       species: userProfile.species ?? "Terran",
       bio: userProfile.bio ?? "",
-      social_links: transformedSocialLinks ?? [{ key: undefined, value: "" }],
+      social_links: userProfile.social_links ?? [{ key: undefined, value: "" }],
     },
   });
+
+  useEffect(() => {
+    if (userProfile) {
+      form.reset({
+        first_name: userProfile.first_name ?? "",
+        last_name: userProfile.last_name ?? "",
+        newImage: undefined,
+        country: userProfile.country ?? undefined,
+        languages:
+          userProfile.languages?.sort((a, b) => a.name.localeCompare(b.name)) ??
+          [], // Sort languages by name for consistency
+        faction: userProfile.faction ?? undefined,
+        species: userProfile.species ?? "Terran",
+        bio: userProfile.bio ?? "",
+        social_links:
+          userProfile.social_links?.sort((a, b) =>
+            a.key.localeCompare(b.key)
+          ) ?? [], // Sort social links by key so it appears consistent.
+      });
+    }
+  }, [userProfile, form.reset]);
 
   const {
     fields: languageFields,
@@ -91,99 +102,101 @@ export function UserProfileForm({
     name: "social_links",
   });
 
-  const handleImageField = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    form.setValue("newImage", file, { shouldValidate: true });
-    // 4. Notify the parent component about the new file
-    onNewImageSelect(file);
-  };
-
   return (
     <Form {...form}>
-      <form
-        onSubmit={form.handleSubmit((data) => console.log(data))}
-        className="space-y-4 w-full "
-      >
-        <FormField
-          control={form.control}
-          name="first_name"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>First Name</FormLabel>
-              <FormControl>
-                <Input placeholder="" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="last_name"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Last Name</FormLabel>
-              <FormControl>
-                <Input placeholder="" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="species"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Species</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <FormField
+            control={form.control}
+            name="first_name"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>First Name</FormLabel>
                 <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a species" />
-                  </SelectTrigger>
+                  <Input placeholder="Your first name" {...field} />
                 </FormControl>
-                <SelectContent>
-                  {(
-                    userProfileFormSchema.shape.species.unwrap()
-                      .options as string[]
-                  ).map((species) => (
-                    <SelectItem key={species} value={species}>
-                      {species}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="faction"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Faction</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="last_name"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Last Name</FormLabel>
                 <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a faction" />
-                  </SelectTrigger>
+                  <Input placeholder="Your last name" {...field} />
                 </FormControl>
-                <SelectContent>
-                  {(
-                    userProfileFormSchema.shape.faction.unwrap()
-                      .options as string[]
-                  ).map((faction) => (
-                    <SelectItem key={faction} value={faction}>
-                      {faction}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <FormField
+            control={form.control}
+            name="species"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Species</FormLabel>
+                <Select
+                  onValueChange={field.onChange}
+                  defaultValue={field.value}
+                >
+                  <FormControl className="w-full">
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a species" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {(
+                      userProfileFormSchema.shape.species.unwrap()
+                        .options as string[]
+                    ).map((species) => (
+                      <SelectItem key={species} value={species}>
+                        {species}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="faction"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Faction</FormLabel>
+                <Select
+                  onValueChange={field.onChange}
+                  defaultValue={field.value}
+                >
+                  <FormControl className="w-full">
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a faction" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {(
+                      userProfileFormSchema.shape.faction.unwrap()
+                        .options as string[]
+                    ).map((faction) => (
+                      <SelectItem key={faction} value={faction}>
+                        {faction}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
         <FormField
           control={form.control}
           name="bio"
@@ -194,200 +207,157 @@ export function UserProfileForm({
                 Tell others a bit about yourself.
               </FormDescription>
               <FormControl>
-                <Textarea placeholder="" {...field} />
+                <Textarea placeholder="Your bio..." {...field} />
               </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="country"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Country</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a country" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {(
-                    userProfileFormSchema.shape.country.unwrap()
-                      .options as string[]
-                  ).map((country) => (
-                    <SelectItem key={country} value={country}>
-                      {country}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormLabel className="mb-2">Languages</FormLabel>
-        <FormDescription></FormDescription>
-        {languageFields.map((item, index) => (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
           <FormField
-            key={item.id}
             control={form.control}
-            name={`languages.${index}.name` as const}
+            name="country"
             render={({ field }) => (
-              <FormItem className="flex items-center gap-2">
-                <FormControl className="flex-1">
-                  <Input {...field} placeholder={`Language ${index + 1}`} />
-                </FormControl>
-                <Button
-                  variant="ghost"
-                  type="button"
-                  size="sm"
-                  onClick={() => removeLanguage(index)}
+              <FormItem>
+                <FormLabel>Country</FormLabel>
+                <Select
+                  onValueChange={field.onChange}
+                  defaultValue={field.value}
                 >
-                  <X strokeWidth="4" className="" />
-                </Button>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a country" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {(
+                      userProfileFormSchema.shape.country.unwrap()
+                        .options as string[]
+                    ).map((country) => (
+                      <SelectItem key={country} value={country}>
+                        {country}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <FormMessage />
               </FormItem>
             )}
           />
-        ))}
-        <div className="flex justify-center">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => appendLanguage({ name: "" })}
-          >
-            <Plus strokeWidth="4" className="" />
-          </Button>
-        </div>
-
-        <FormLabel className="mb-2">Social Media</FormLabel>
-        <FormDescription></FormDescription>
-        {socialLinkFields.map((item, index) => (
-          <div className="grid grid-cols-6 gap-2 items-center" key={item.id}>
-            <div className="col-span-1">
+          <div className="space-y-2">
+            <FormLabel>Languages</FormLabel>
+            {languageFields.map((item, index) => (
               <FormField
+                key={item.id}
                 control={form.control}
-                name={`social_links.${index}.key` as const}
+                name={`languages.${index}.name`}
                 render={({ field }) => (
                   <FormItem className="flex items-center gap-2">
-                    <FormControl className="w-full">
+                    <FormControl>
+                      <Input {...field} placeholder={`Language ${index + 1}`} />
+                    </FormControl>
+                    <Button
+                      variant="ghost"
+                      type="button"
+                      size="icon"
+                      onClick={() => removeLanguage(index)}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </FormItem>
+                )}
+              />
+            ))}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => appendLanguage({ name: "" })}
+            >
+              Add Language
+            </Button>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <FormLabel>Social Media</FormLabel>
+          {socialLinkFields.map((item, index) => (
+            <div className="grid grid-cols-6 gap-2 items-center" key={item.id}>
+              <div className="col-span-2">
+                <FormField
+                  control={form.control}
+                  name={`social_links.${index}.key`}
+                  render={({ field }) => (
+                    <FormItem>
                       <Select
                         onValueChange={field.onChange}
-                        // value={`${Object.keys(item)[0]}`}
-                        value={field.value}
+                        defaultValue={field.value}
                       >
                         <FormControl>
                           <SelectTrigger className="w-full">
-                            <SelectValue
-                              placeholder={`Social Media ${index + 1}`}
-                            />
+                            <SelectValue placeholder="Select" />
                           </SelectTrigger>
                         </FormControl>
-                        <SelectContent className="w-full">
-                          {SOCIAL_KEYS.filter(
-                            (key) =>
-                              !form
-                                .watch("social_links")
-                                ?.some(
-                                  (link, idx) =>
-                                    link.key === key && idx !== index
-                                )
-                          ).map((key) => (
-                            <SelectItem
-                              key={key}
-                              value={key}
-                              className="w-full"
-                            >
+                        <SelectContent>
+                          {SOCIAL_KEYS.map((key) => (
+                            <SelectItem key={key} value={key}>
                               {key}
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <div className="col-span-3">
+                <FormField
+                  control={form.control}
+                  name={`social_links.${index}.value`}
+                  render={({ field }) => (
+                    <FormItem>
+                      <Input {...field} placeholder="https://..." />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <div className="col-span-1 flex justify-end">
+                <Button
+                  variant="ghost"
+                  type="button"
+                  size="icon"
+                  onClick={() => removeSocialLink(index)}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
-            <div className="col-span-4">
-              <FormField
-                key={`${item.id}-value`}
-                control={form.control}
-                name={`social_links.${index}.value`}
-                render={({ field }) => (
-                  <FormItem className="flex items-center gap-2">
-                    <FormControl className="w-full">
-                      <Input
-                        {...field}
-                        placeholder={`Social Media ${index + 1} Link`}
-                        value={field.value}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-            <div className="col-span-1 flex justify-end">
-              <Button
-                variant="ghost"
-                type="button"
-                size="sm"
-                onClick={() => removeSocialLink(index)}
-              >
-                <X strokeWidth="4" className="" />
-              </Button>
-            </div>
-          </div>
-        ))}
-        <div className="flex justify-center">
+          ))}
           <Button
             type="button"
-            variant="ghost"
+            variant="outline"
             size="sm"
-            onClick={() => appendSocialLink({ key: "Other" as any, value: "" })}
+            onClick={() => appendSocialLink({ key: "Other", value: "" })}
           >
-            <Plus strokeWidth="4" className="" />
+            Add Social Link
           </Button>
         </div>
 
-        <FormField
-          control={form.control}
-          name="newImage"
-          render={() => (
-            <FormItem>
-              <FormLabel>Upload New Profile Image</FormLabel>
-              <FormControl>
-                <Input
-                  id="picture"
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageField}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <Button
-          className="w-full"
-          disabled={form.formState.isSubmitting}
-          type="submit"
-        >
-          {form.formState.isSubmitting ? "Submitting..." : "Submit"}
-        </Button>
-        <Button
-          className="w-full"
-          type="button"
-          variant="secondary"
-          onClick={() => navigate(-1)}
-        >
-          Cancel
-        </Button>
+        <div className="flex flex-col gap-2 pt-4">
+          <Button className="w-full" disabled={isSubmitting} type="submit">
+            {isSubmitting ? "Saving Changes..." : "Save Changes"}
+          </Button>
+          <Button
+            className="w-full"
+            type="button"
+            variant="secondary"
+            onClick={() => navigate(-1)}
+            disabled={isSubmitting}
+          >
+            Cancel
+          </Button>
+        </div>
       </form>
     </Form>
   );

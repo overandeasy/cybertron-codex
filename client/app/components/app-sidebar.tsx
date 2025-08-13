@@ -1,16 +1,5 @@
 import * as React from "react";
-import {
-  AudioWaveform,
-  BookOpen,
-  Bot,
-  Command,
-  Frame,
-  GalleryVerticalEnd,
-  Map,
-  PieChart,
-  Settings2,
-  SquareTerminal,
-} from "lucide-react";
+import { LibraryBigIcon, Star, User } from "lucide-react";
 
 import { NavMain } from "~/components/nav-main";
 import { NavProjects } from "~/components/nav-projects";
@@ -23,147 +12,57 @@ import {
   SidebarHeader,
   SidebarRail,
 } from "~/components/ui/sidebar";
-import { useLoaderData } from "react-router";
-import type { clientLoader } from "~/routes/appLayout";
 import type { UserProfile } from "~/lib/zod";
 
-// This is sample data.
 const data = {
-  user: {
-    name: "shadcn",
-    email: "m@example.com",
-    avatar: "/favicon.ico",
-  },
   teams: [
     {
-      name: "Acme Inc",
-      logo: GalleryVerticalEnd,
-      plan: "Enterprise",
+      name: "Autobots",
+      logo: "/images/logo/autobot.svg",
+      plan: "Til all are one.",
     },
     {
-      name: "Acme Corp.",
-      logo: AudioWaveform,
-      plan: "Startup",
-    },
-    {
-      name: "Evil Corp.",
-      logo: Command,
-      plan: "Free",
+      name: "Decepticons",
+      logo: "/images/logo/decepticon.svg",
+      plan: "Peace through tyranny.",
     },
   ],
   navMain: [
     {
-      title: "Playground",
-      url: "#",
-      icon: SquareTerminal,
+      title: "Profile",
+      url: "/user/myProfile",
+      icon: User,
       isActive: true,
       items: [
         {
-          title: "History",
-          url: "#",
+          title: "My Profile",
+          url: "/user/my-profile",
         },
         {
-          title: "Starred",
-          url: "#",
-        },
-        {
-          title: "Settings",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Models",
-      url: "#",
-      icon: Bot,
-      items: [
-        {
-          title: "Genesis",
-          url: "#",
-        },
-        {
-          title: "Explorer",
-          url: "#",
-        },
-        {
-          title: "Quantum",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Documentation",
-      url: "#",
-      icon: BookOpen,
-      items: [
-        {
-          title: "Introduction",
-          url: "#",
-        },
-        {
-          title: "Get Started",
-          url: "#",
-        },
-        {
-          title: "Tutorials",
-          url: "#",
-        },
-        {
-          title: "Changelog",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Settings",
-      url: "#",
-      icon: Settings2,
-      items: [
-        {
-          title: "General",
-          url: "#",
-        },
-        {
-          title: "Team",
-          url: "#",
-        },
-        {
-          title: "Billing",
-          url: "#",
-        },
-        {
-          title: "Limits",
-          url: "#",
+          title: "Edit Profile",
+          url: "/user/my-profile/edit",
         },
       ],
     },
   ],
-  projects: [
+  Collections: [
     {
-      name: "Design Engineering",
-      url: "#",
-      icon: Frame,
+      name: "My Collections",
+      url: "/collection/my-collections",
+      icon: LibraryBigIcon,
     },
     {
-      name: "Sales & Marketing",
-      url: "#",
-      icon: PieChart,
-    },
-    {
-      name: "Travel",
-      url: "#",
-      icon: Map,
+      name: "Favorites",
+      url: "/collection/my-favorites",
+      icon: Star,
     },
   ],
 };
 
-export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const { userProfile }: { userProfile: UserProfile } =
-    useLoaderData<typeof clientLoader>();
-  console.log("User profile in AppSidebar:", userProfile);
-  if (!userProfile) {
-    return null; // or some fallback UI
-  }
+export function AppSidebar({
+  userProfile,
+  ...props
+}: React.ComponentProps<typeof Sidebar> & { userProfile: UserProfile | null }) {
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
@@ -171,10 +70,18 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={data.navMain} />
-        <NavProjects projects={data.projects} />
+        <NavProjects projects={data.Collections} />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={userProfile} />
+        <NavUser
+          user={{
+            name: userProfile?.first_name || "Guest",
+            email: userProfile?.user_id.email || "No email",
+            avatar:
+              userProfile?.images?.[userProfile.images.length - 1] ||
+              "/images/defaultUser/energon-glyphs.png",
+          }}
+        />
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>

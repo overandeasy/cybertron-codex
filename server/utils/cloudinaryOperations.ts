@@ -1,5 +1,5 @@
 import { v2 as cloudinary } from 'cloudinary';
-import { NextFunction, Request, Response } from 'express';
+import { Response } from 'express';
 import fs from 'fs';
 
 export async function uploadImage(file: Express.Multer.File, user: Express.Request['user'], res: Response, asset_folder: string) {
@@ -66,3 +66,34 @@ const removeTempFile = (filePath: Express.Multer.File['path']) => {
         }
     });
 };
+
+export async function removeImages(urls: string[]) {
+    try {
+        console.log("Removing images with URLs:", urls);
+        if (!urls || urls.length === 0) {
+            console.log("No URLs provided for deletion.");
+            return [];
+        }
+        const deletePromises = urls.map((url) => {
+            // Extract everything after the version number
+            const parts = url.split('/');
+            const versionIndex = parts.findIndex(part => part.startsWith('v') && /^\d+$/.test(part.substring(1)));
+            const publicIdWithExt = parts.slice(versionIndex + 1).join('/');
+            const publicId = publicIdWithExt.split('.')[0];
+            console.log("Public ID extracted:", publicId);
+
+            // Extract public ID from URL
+            if (publicId) {
+                return cloudinary.uploader.destroy(publicId);
+            }
+            return Promise.resolve(null); // Or handle as you see fit when publicId is not found
+        });
+
+        const results = await Promise.all(deletePromises);
+        console.log("Images deleted successfully:", results);
+        return results;
+    } catch (error) {
+        console.error("Error deleting images:", error);
+        throw new Error("Failed to delete images");
+    }
+}

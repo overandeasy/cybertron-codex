@@ -1,5 +1,4 @@
 import mongoose from 'mongoose'; // Import Mongoose
-import { AuthModel } from './auth';
 export const SOCIAL_KEYS = [
     'x', 'instagram', 'youtube', 'twitch', 'tiktok', 'discord',
     'github', 'linkedin', 'wechat', 'weibo', 'rednote', 'douyin', 'website'
@@ -17,7 +16,7 @@ const userProfileSchema = new mongoose.Schema(
         },
         first_name: { type: String, default: '' },
         last_name: { type: String, default: '' },
-        images: { type: [String], default: ["https://res.cloudinary.com/dfzymwhck/image/upload/v1754151613/generic_profile_image_tv375n_e_background_removal_f_png_klqsrm.png"] },
+        images: { type: [String], default: [] },
         country: { type: String, default: '' },
         languages: { type: [Object], default: [{ name: "" }] },
         faction: { type: String, enum: ['Autobot', 'Decepticon', ''], default: '' },

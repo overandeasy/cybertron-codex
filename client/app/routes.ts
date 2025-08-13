@@ -9,10 +9,15 @@ export default [layout("routes/appLayout.tsx", [
     ]),
     ...prefix("user", [
         layout("routes/user/layout.tsx", [
-            route("my-profile", "routes/user/myProfile.tsx"),
-            route("my-profile/edit", "routes/user/editMyProfile.tsx"),
+
+            route("my-profile", "routes/user/myProfileLayout.tsx", [
+                index("routes/user/myProfile.tsx"),
+                route("edit", "routes/user/editMyProfile.tsx"),
+            ]),
+
         ])
     ]),
+
 ]),
 
 ] satisfies RouteConfig;

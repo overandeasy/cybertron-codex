@@ -4,7 +4,7 @@ import { handleError } from "../utils/handleError";
 import { UserProfileModel } from "../db_models/user_profile";
 import { comparePassword, encryptPassword } from "../utils/encryptPassword";
 import generateToken from "../utils/generateToken";
-import { uploadImage } from "../utils/uploadImage";
+import { removeImages, uploadImage } from "../utils/cloudinaryOperations";
 
 export const signUp = async (req: Request, res: Response) => {
     try {
@@ -122,70 +122,101 @@ export const updateUserProfile = async (req: Request, res: Response) => {
             return res.status(401).json({ error: "Unauthorized access" });
         }
 
-        // For safety, use Zod to parse the request data. For now, assume req.body is already validated.
         const dataToUpdate: { [key: string]: any } = {
-            $push: {},
+            $push: {}, // In case there are arrays to append (but currently not used)
             $set: {}
         };
 
-        // If the request body contains fields to update, add them to dataToUpdate
-        console.log("Updating user profile with image file:", req.file);
-        if (req.file) {
-            const imageUrl = await uploadImage(req.file, req.user, res, `cybertron_codex/user_profile_images/${req.user?._id.toString()}`) as string | undefined;
-            imageUrl && (dataToUpdate.$push.images = imageUrl);
+
+
+        if (req.body.imagesToDelete) {
+            const deletedImages = await removeImages(JSON.parse(req.body.imagesToDelete));
+            console.log("Deleted images:", deletedImages);
         }
 
-        const { first_name, last_name, country, faction, species, bio, social_links } = req.body;
-        let { languages } = req.body;
-        console.log("Languages before processing:", languages, typeof languages);
-        // FIX: Parse languages if it's a stringified array
+        // Destructure all fields from the body
+        const { first_name, last_name, country, faction, species, bio } = req.body;
+        let { images, languages, social_links, imagesToDelete } = req.body;
+
+        // --- Start of Corrected Logic ---
+
+        // 1. Parse stringified arrays from FormData
+        if (typeof images === 'string') {
+            try {
+                images = JSON.parse(images);
+            } catch (e) {
+                return res.status(400).json({ error: "Invalid format for images." });
+            }
+        }
+        // Remember to handle the file upload if it exists and add the returned new image URL to the images array
+        if (req.file) {
+            const imageUrl = await uploadImage(req.file, req.user, res, `cybertron_codex/user_profile_images/${req.user?._id.toString()}`) as string | undefined;
+            if (imageUrl) {
+                images.push(imageUrl);
+            }
+        }
         if (typeof languages === 'string') {
             try {
                 languages = JSON.parse(languages);
             } catch (e) {
-                console.error("Failed to parse languages string:", languages);
-                // Decide how to handle malformed string: ignore, or return error
                 return res.status(400).json({ error: "Invalid format for languages." });
+            }
+        }
+        if (typeof social_links === 'string') {
+            try {
+                social_links = JSON.parse(social_links);
+            } catch (e) {
+                return res.status(400).json({ error: "Invalid format for social links." });
+            }
+        }
+        if (typeof imagesToDelete === 'string') {
+            try {
+                imagesToDelete = JSON.parse(imagesToDelete);
+            } catch (e) {
+                return res.status(400).json({ error: "Invalid format for imagesToDelete." });
             }
         }
 
 
-        console.log("Updating user profile with text data:", req.body);
-        if (first_name) {
-            dataToUpdate.$set.first_name = first_name;
-        }
-        if (last_name) {
-            dataToUpdate.$set.last_name = last_name;
-        }
-        if (country) {
-            dataToUpdate.$set.country = country;
-        }
+        // 2. Build the update object using $set for replacement
+        if (first_name) dataToUpdate.$set.first_name = first_name;
+        if (last_name) dataToUpdate.$set.last_name = last_name;
+        if (country) dataToUpdate.$set.country = country;
+        if (faction) dataToUpdate.$set.faction = faction;
+        if (species) dataToUpdate.$set.species = species;
+        if (bio) dataToUpdate.$set.bio = bio;
+
+        // Use $set to REPLACE the entire array
+
         if (languages && Array.isArray(languages)) {
-            dataToUpdate.$push.languages = { $each: languages };
+            dataToUpdate.$set.languages = languages;
         }
-        if (faction) {
-            dataToUpdate.$set.faction = faction;
-        }
-        if (species) {
-            dataToUpdate.$set.species = species;
-        }
-        if (bio) {
-            dataToUpdate.$set.bio = bio;
-        }
-        if (social_links) {
+        if (social_links && Array.isArray(social_links)) {
             dataToUpdate.$set.social_links = social_links;
         }
-        if (Object.keys(dataToUpdate.$push).length === 0) {
-            delete dataToUpdate.$push; // Remove $push if it's empty
+        if (images && Array.isArray(images)) {
+            dataToUpdate.$set.images = images;
         }
-        if (Object.keys(dataToUpdate.$set).length === 0) {
-            delete dataToUpdate.$set; // Remove $set if it's empty
-        }
+
+        // --- End of Corrected Logic ---
+
+        // Clean up empty operators before sending to DB
+        if (Object.keys(dataToUpdate.$set).length === 0) delete dataToUpdate.$set;
+        if (Object.keys(dataToUpdate.$push).length === 0) delete dataToUpdate.$push; // Currently not used, but good to keep
+        if (!dataToUpdate.$pull) delete dataToUpdate.$pull; // Also check for $pull. Currently not used, but good to keep
+
         if (Object.keys(dataToUpdate).length === 0) {
-            return res.status(400).json({ error: "No data to update" });
+            // If only non-changing data was sent, we can return the existing profile
+            const userProfile = await UserProfileModel.findOne({ user_id: req.user._id });
+            return res.status(200).json({ updated: false, userProfile, message: "No data to update" });
         }
-        console.log("Final data to update:", dataToUpdate);
-        const updatedUserProfile = await UserProfileModel.findOneAndUpdate({ user_id: req.user._id }, dataToUpdate, { new: true });
+
+        console.log("Final data to update:", JSON.stringify(dataToUpdate, null, 2));
+        const updatedUserProfile = await UserProfileModel.findOneAndUpdate(
+            { user_id: req.user._id },
+            dataToUpdate,
+            { new: true }
+        );
         res.status(200).json({ updated: true, userProfile: updatedUserProfile });
         console.log("User profile updated successfully:", updatedUserProfile);
 
