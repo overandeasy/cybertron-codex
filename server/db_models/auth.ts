@@ -6,7 +6,12 @@ const authSchema = new mongoose.Schema({
 
     password: { type: String, required: true },
     email: { type: String, required: true, unique: true },
-    active: { type: Boolean, default: true }
+    active: { type: Boolean, default: true },
+    profile_id: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'user_profiles', // Use the UserProfileModel's model name
+        required: true,
+    }
 }, { timestamps: true, collection: "auth" }) // Automatically manage createdAt and updatedAt fields
 
 export const AuthModel = mongoose.model("auth", authSchema);

@@ -17,6 +17,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 
 import { useTransition } from "react";
 import { signUp } from "~/api/auth";
+import { useNavigate } from "react-router";
 
 // Handle form submission
 
@@ -33,6 +34,7 @@ function SignUpForm() {
   });
 
   const [isSigningUp, startSignUpTransition] = useTransition();
+  const route = useNavigate();
 
   const onSubmit = () => {
     startSignUpTransition(async () => {
@@ -42,7 +44,7 @@ function SignUpForm() {
             type: "manual",
             message: `An error occured. Please try again. ${signUpResult.error.message}`,
           })
-        : form.reset();
+        : (form.reset(), route("/home"));
     });
   };
 

@@ -2,6 +2,7 @@ import {
   isRouteErrorResponse,
   Links,
   Meta,
+  Navigate,
   Outlet,
   Scripts,
   ScrollRestoration,
@@ -10,6 +11,8 @@ import {
 import type { Route } from "./+types/root";
 import "./app.css";
 import { Toaster } from "./components/ui/sonner";
+import { getActiveUserProfile } from "./api/user";
+import type { UserProfile } from "./lib/zod";
 
 export const links: Route.LinksFunction = () => [
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
@@ -23,6 +26,29 @@ export const links: Route.LinksFunction = () => [
     href: "https://fonts.googleapis.com/css2?family=Audiowide&family=Exo+2:ital,wght@0,100..900;1,100..900&family=Orbitron:wght@400..900&display=swap",
   },
 ];
+export async function clientLoader() {
+  const token = localStorage.getItem("token");
+  if (!token) {
+    // If no token, just return the server's "logged out" state.
+    console.warn("No auth token found in localStorage.");
+    return { userProfile: null };
+  }
+
+  try {
+    // If a token exists, fetch the user profile.
+    const userProfile = (await getActiveUserProfile()) as UserProfile;
+    console.log(
+      "User profile fetched successfully on the client side on initial load."
+    );
+    return { userProfile };
+  } catch (error) {
+    console.error(
+      "Failed to fetch user profile, token might be invalid.",
+      error
+    );
+    return <Navigate to="/auth/sign-in" />;
+  }
+}
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
@@ -30,13 +56,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <link rel="icon" type="image/svg+xml" href="/images/logo/favicon.ico" />
         <Meta />
         <Links />
       </head>
       <body>
         {children}
-
         <ScrollRestoration />
+        <Toaster position="top-center" />
         <Scripts />
       </body>
     </html>

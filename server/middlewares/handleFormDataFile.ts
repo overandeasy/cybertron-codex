@@ -1,22 +1,15 @@
 import { NextFunction, Request, Response } from 'express';
 import multer from 'multer'
-import path from 'path'
 
 
-// declare global {
-//     namespace Express {
-//         interface Request {
-//             multerError?: string;
-//         }
-//     }
-// }
+
 // Multer handles files from form-data, and stores them in a temporary location before they are uploaded to Cloudinary. Multer does not handle the actual upload to Cloudinary; that is done in the controller after the file is processed.
-export const handleFormDataFile = multer({
+const multerConfig = {
     storage: multer.diskStorage({}),
     limits: {
         fileSize: 3 * 1024 * 1024, // 3MB
     },
-    fileFilter: (req, file, cb) => {
+    fileFilter: (req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
         if (file.mimetype.startsWith("image/")) {
             cb(null, true);
         } else {
@@ -24,7 +17,27 @@ export const handleFormDataFile = multer({
             cb(new Error("Only image files are accepted."));
         }
     },
-});
+}
+// Single file upload handler
+export const handleSingleFormDataFile = (filedName: string) => {
+    return multer(multerConfig).single(filedName);
+
+}
+
+// Multiple files upload handler FOR SINGLE FIELD
+// This is used when you want to upload multiple files under the same field name, e.g, 'collection_images'.
+export const handleMultipleFormDataFiles = (filedName: string, maxCount: number) => {
+    return multer(multerConfig).array(filedName, maxCount);
+}
+// Multiple files upload handler FOR MULTIPLE FIELDS
+// This is used when you want to upload multiple files under different field names, e.g, 'media_images' and 'toy_images'.
+
+export const handleMultipleFormDataFilesWithFields = (fields: { name: string, maxCount: number }[]) => {
+    return multer(multerConfig).fields(fields);
+}
+
+//Backward compatibility for the old file input name
+export const handleFormDataFile = multer(multerConfig).single('new_profile_image');
 export const handleMulterError = (err: any, req: Request, res: Response, next: NextFunction) => {
     if (err instanceof multer.MulterError) {
         console.error("Multer Error:", err.code);

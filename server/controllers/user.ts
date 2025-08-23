@@ -5,6 +5,7 @@ import { UserProfileModel } from "../db_models/user_profile";
 import { comparePassword, encryptPassword } from "../utils/encryptPassword";
 import generateToken from "../utils/generateToken";
 import { removeImages, uploadImage } from "../utils/cloudinaryOperations";
+import { ObjectId } from "mongodb";
 
 export const signUp = async (req: Request, res: Response) => {
     try {
@@ -12,15 +13,17 @@ export const signUp = async (req: Request, res: Response) => {
         if (!req.body) {
             return res.status(400).json({ error: "Registration form cannot be empty" });
         }
-        const { email, password, first_name, last_name } = req.body
+        const { email, password, firstName, lastName } = req.body
         if (!email || !password) {
             return res.status(400).json({ error: "Email and password are required" });
         }
         if (await AuthModel.exists({ email })) {
             return res.status(409).json({ error: "Email already exists" });
         }
-        const registeredUser = await AuthModel.create({ email, password: await encryptPassword(password), active: true });
-        const registeredUserProfile = await UserProfileModel.create({ user_id: registeredUser._id, first_name, last_name });
+        const registeredUser = await AuthModel.create({ email, password: await encryptPassword(password), profile_id: new ObjectId, active: true }); // The profile_id is required but will only be available after user's profile is created (in the next function), so it is an empty string for now, and will be updated afterwards.
+        const registeredUserProfile = await UserProfileModel.create({ _id: new ObjectId(registeredUser.profile_id), user_id: registeredUser._id, first_name: firstName, last_name: lastName });
+        // Update the AuthModel with the profile_id
+        // await AuthModel.findByIdAndUpdate(registeredUser._id, { profile_id: registeredUserProfile._id }, { new: true });
         const token = generateToken(registeredUser._id.toString(), registeredUser.email);
         console.log("Registered user:", registeredUser);
         console.log("Registered user profile:", registeredUserProfile);

@@ -10,7 +10,7 @@ export const getActiveUserProfile = async () => {
         throw new Error("Failed to fetch user profile");
     }
     const userProfile = await response.json();
-    console.log("User profile fetched successfully:", userProfile);
+    console.log("User profile fetched successfully via API.");
     return userProfile;
 };
 
@@ -18,7 +18,7 @@ export const getActiveUserProfile = async () => {
 export const updateUserProfile = async (data: FormData) => {
     try {
         const response = await fetch(`${baseUrl}/user/my-profile/edit`, {
-            method: "POST",
+            method: "PATCH",
             headers: {
                 Authorization: `Bearer ${localStorage.getItem("token")}`,
             },

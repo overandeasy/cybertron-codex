@@ -124,6 +124,30 @@ export const userProfileFormSchema = z.object({
 });
 
 
+
+// Zod schema
+export const userCollectionFormSchema = z.object({
+    // _id: z.string(), // ObjectId as string
+    character_name: z.string(),
+    character_primary_faction: z.string(),
+    character_description: z.string().optional(),
+    toy_line: z.string().optional(),
+    toy_class: z.string().optional(),
+    media_images: z.array(z.string()).optional(),
+    toy_images: z.array(z.string()).optional(),
+    collection_notes: z.string().optional(),
+    acquisition_date: z.coerce.date().optional(), // coerce to handle string inputs
+    user_profile_id: z.string(), // ObjectId as string
+    acquisition_location: z.string().optional(),
+    alt_character_name: z
+        .array(z.object({ name: z.string() }))
+        .optional(),
+    public: z.boolean().default(true),
+    createdAt: z.date().optional(),
+    updatedAt: z.date().optional(),
+});
+
+
 export type SignUpFormData = z.infer<typeof signUpFormSchema>
 export type SignInFormData = z.infer<typeof signInFormSchema>
 export type UserProfileFormData = z.infer<typeof userProfileFormSchema>
@@ -140,7 +164,16 @@ export type UserProfile = Omit<z.infer<typeof userProfileFormSchema>, 'newImage'
     createdAt: Date;
     updatedAt: Date;
 }
-
+export type UserCollection = Omit<z.infer<typeof userCollectionFormSchema>, 'user_profile_id'> & {
+    user_profile_id: {
+        user_id: string;
+        first_name: string;
+        last_name: string;
+    };
+    _id: string;
+    createdAt: Date;
+    updatedAt: Date;
+};
 
 // Schema for image file validation for file upload in the EditMyProfile component
 export const imageFileSchema = z

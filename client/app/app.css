@@ -61,6 +61,8 @@ body {
   /* Color for energon theme */
   --color-energon-green: var(--energon-green);
   --color-energon-cyan: var(--energon-cyan);
+  --color-cybertron-blue: var(--cybertron-blue);
+  --color-cybertron-gray: var(--cybertron-gray);
   --color-decepticon-purple: var(--decepticon-purple);
   --color-autobot-red: var(--autobot-red);
   --color-optimus-blue: var(--optimus-blue);
@@ -105,10 +107,10 @@ body {
   --energon-green: oklch(0.8714 0.286 141.53);
   --energon-cyan: oklch(0.9054 0.15455 194.769);
   --cybertron-gray: oklch(0.445 0.05 264.5);
-  --cybertron-blue: oklch(0.55 0.56 236);
+  --cybertron-blue: oklch(0.646 0.1423 253.92);
   --autobot-red: oklch(0.5872 0.2264 25);
   --decepticon-purple: oklch(0.4728 0.1493 289.92);
-  --optimus-blue: oklch(0.55 0.56 236);
+  --optimus-blue: oklch(0.4261 0.235267 263.7418);
   --megatron-silver: oklch(0.79 0.03 30);
   --bumblebee-yellow: oklch(0.74 0.81 103);
 }
@@ -219,5 +221,23 @@ body {
   }
   .animate-energon-cyan {
     animation: energonPulse 3s ease-in-out infinite;
+  }
+
+  @keyframes revolveY {
+    from {
+      transform: rotateY(0deg);
+    }
+
+    to {
+      transform: rotateY(360deg);
+    }
+  }
+  .perspective {
+    perspective: 1000px;
+  }
+  .animate-logo-revolve {
+    transform-origin: center;
+    backface-visibility: hidden;
+    animation: revolveY 1000ms ease-in-out forwards;
   }
 }

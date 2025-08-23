@@ -5,6 +5,7 @@ import 'dotenv/config'; //Side-effect import - executes code when the module is 
 import mongoose from 'mongoose';
 import { validateToken } from './middlewares/validateToken';
 import authRouter from './routes/auth';
+import collectionRouter from './routes/collection';
 
 
 const app = express();
@@ -16,6 +17,8 @@ app.use(cors())
 
 app.use('/api/auth', authRouter)
 app.use('/api/user', validateToken, userRouter)
+app.use('/api/collection', validateToken, collectionRouter)
+
 app.use('/*catchall', (req, res) => {
 
     res.status(404).json({ error: "End point not Found" })

@@ -68,6 +68,11 @@ const removeTempFile = (filePath: Express.Multer.File['path']) => {
 };
 
 export async function removeImages(urls: string[]) {
+    cloudinary.config({
+        cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+        api_key: process.env.CLOUDINARY_API_KEY,
+        api_secret: process.env.CLOUDINARY_API_SECRET
+    });
     try {
         console.log("Removing images with URLs:", urls);
         if (!urls || urls.length === 0) {

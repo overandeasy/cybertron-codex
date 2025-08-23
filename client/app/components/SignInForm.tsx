@@ -16,6 +16,7 @@ import { Button } from "./ui/button";
 
 import { useTransition } from "react";
 import { signIn } from "~/api/auth";
+import { useNavigate } from "react-router";
 
 // Handle form submission
 
@@ -29,6 +30,7 @@ function SignInForm() {
   });
 
   const [isSigningIn, startSignInTransition] = useTransition();
+  const route = useNavigate();
 
   const onSubmit = () => {
     startSignInTransition(async () => {
@@ -38,15 +40,12 @@ function SignInForm() {
             type: "manual",
             message: `An error occured. Please try again. ${signInResult.error.message}`,
           })
-        : form.reset();
+        : (form.reset(), route("/home"));
     });
   };
   return (
     <Form {...form}>
-      <form
-        onSubmit={form.handleSubmit(onSubmit)}
-        className="space-y-8 w-full max-w-md"
-      >
+      <form onSubmit={form.handleSubmit(onSubmit)} className="">
         <FormField
           control={form.control}
           name="email"

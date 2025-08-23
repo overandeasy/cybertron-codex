@@ -8,9 +8,9 @@ export function meta({}: Route.MetaArgs) {
     { name: "description", content: "View and edit your profile information" },
   ];
 }
-
+export const handle = { breadcrumb: "Profile" };
 export default function MyProfile() {
-  const loaderData = useRouteLoaderData("routes/appLayout") as {
+  const loaderData = useRouteLoaderData("root") as {
     userProfile?: any;
   };
   const userProfile = loaderData?.userProfile;

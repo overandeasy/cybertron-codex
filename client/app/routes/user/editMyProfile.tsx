@@ -14,6 +14,7 @@ import { SquareUserRound } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "~/lib/utils";
 import type { Route } from "./+types/editMyProfile";
+import { themeToast } from "~/components/ThemeToast";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -25,7 +26,7 @@ export function meta({}: Route.MetaArgs) {
 export const handle = { breadcrumb: "Edit Profile" };
 
 export default function EditMyProfile() {
-  const loaderData = useRouteLoaderData("routes/appLayout");
+  const loaderData = useRouteLoaderData("root");
   const userProfile = loaderData?.userProfile;
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -177,50 +178,24 @@ export default function EditMyProfile() {
     }
     console.log("---------------------------");
 
-    // setTimeout(() => setIsSubmitting(false), 2000); // Simulate network request
     const res = await updateUserProfile(formData);
     const updateUserProfileResult = await res.json();
     if (!res.ok) {
       setUpdateUserProfileResult({
         error: updateUserProfileResult.error || "Unknown error",
       });
+      themeToast("fail", "Failed to update profile. Please try again.");
       setIsSubmitting(false);
       return;
     }
     setUpdateUserProfileResult(updateUserProfileResult);
-    toast.success("Profile updated successfully.", {
-      className: cn(
-        // "text-shadow-energon-cyan",
-        "font-special",
-        "justify-center",
-        "p-8",
-        "m-auto",
-        "rounded-lg",
-        "min-w-md",
-        "max-w-1/2"
-        // "border-4"
-      ),
-      style: {
-        fontSize: "1.25rem",
-      },
-      // action: {
-      //   label: "OK",
-      //   onClick: () => navigate("/user/my-profile"), // Redirect to the dashboard or any other page after successful update
-      // },
-      onAutoClose: () => {
-        navigate("/user/my-profile");
-      }, // Redirect after auto-close
-      // style: {
-      //   minWidth: "200px",
-      //   maxWidth: "50vw",
-      //   fontSize: "1.25rem",
-      //   borderRadius: "0.5rem",
-      //   whiteSpace: "pre-line", // or "normal" for standard wrapping
-      //   textAlign: "center", // optional: center the text
-      //   margin: "auto",
-      //   boxSizing: "border-box",
-      // },
-    });
+    themeToast(
+      "success",
+      "Profile updated successfully.",
+      "/user/my-profile",
+      navigate
+    );
+
     setIsSubmitting(false);
 
     console.log("Response from updateUserProfile:", updateUserProfileResult);

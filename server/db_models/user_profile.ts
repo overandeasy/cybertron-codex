@@ -23,7 +23,7 @@ const userProfileSchema = new mongoose.Schema(
         species: { type: String, enum: ['Cybertronian', 'Terran', 'Other'], default: 'Other' },
         bio: { type: String, default: '' },
         social_links: {
-            social_links: [
+            type: [
                 {
                     key: { type: String, enum: SOCIAL_KEYS },
                     value: { type: String }
