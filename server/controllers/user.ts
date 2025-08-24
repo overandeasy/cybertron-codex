@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { AuthModel } from "../db_models/auth";
-import { handleError } from "../utils/handleError";
+import { handleError, handleSuccess } from "../utils/handleServerApiResponse";
 import { UserProfileModel } from "../db_models/user_profile";
 import { comparePassword, encryptPassword } from "../utils/encryptPassword";
 import generateToken from "../utils/generateToken";
@@ -11,14 +11,29 @@ export const signUp = async (req: Request, res: Response) => {
     try {
         console.log("Registering user with data:", req.body);
         if (!req.body) {
-            return res.status(400).json({ error: "Registration form cannot be empty" });
+            return handleError(res, {
+                type: 'error',
+                status: 400,
+                code: 'BAD_REQUEST',
+                message: "Registration form cannot be empty"
+            });
         }
         const { email, password, firstName, lastName } = req.body
         if (!email || !password) {
-            return res.status(400).json({ error: "Email and password are required" });
+            return handleError(res, {
+                type: 'error',
+                status: 400,
+                code: 'BAD_REQUEST',
+                message: "Email and password are required"
+            });
         }
         if (await AuthModel.exists({ email })) {
-            return res.status(409).json({ error: "Email already exists" });
+            return handleError(res, {
+                type: 'error',
+                status: 409,
+                code: 'CONFLICT',
+                message: "Email already exists"
+            });
         }
         const registeredUser = await AuthModel.create({ email, password: await encryptPassword(password), profile_id: new ObjectId, active: true }); // The profile_id is required but will only be available after user's profile is created (in the next function), so it is an empty string for now, and will be updated afterwards.
         const registeredUserProfile = await UserProfileModel.create({ _id: new ObjectId(registeredUser.profile_id), user_id: registeredUser._id, first_name: firstName, last_name: lastName });
@@ -28,13 +43,26 @@ export const signUp = async (req: Request, res: Response) => {
         console.log("Registered user:", registeredUser);
         console.log("Registered user profile:", registeredUserProfile);
         console.log("Generated token:", token);
-
-        res.status(201).json({ registered: true, userProfile: registeredUserProfile, token });
         console.log("User registered successfully");
         console.log("User profile created successfully");
 
+        return handleSuccess(res, {
+            type: 'success',
+            status: 201,
+            code: 'USER_REGISTERED',
+            message: "User registered successfully",
+            data: { registered: true, userProfile: registeredUserProfile, token }
+        });
+
+
     } catch (error) {
-        handleError(error, res);
+        handleError(res, {
+            type: 'error',
+            status: 500,
+            code: 'INTERNAL_SERVER_ERROR',
+            message: "Failed to register user",
+            data: error
+        });
     }
 }
 
@@ -42,19 +70,39 @@ export const loginUser = async (req: Request, res: Response) => {
     try {
         console.log("Signing in user with data:", req.body);
         if (!req.body) {
-            return res.status(400).json({ error: "Login form cannot be empty" });
+            return handleError(res, {
+                type: 'error',
+                status: 400,
+                code: 'BAD_REQUEST',
+                message: "Login form cannot be empty"
+            });
         }
 
         const { email, password } = req.body;
         if (!email || !password) {
-            return res.status(400).json({ error: "Email and password are required" });
+            return handleError(res, {
+                type: 'error',
+                status: 400,
+                code: 'BAD_REQUEST',
+                message: "Email and password are required"
+            });
         }
         const user = await AuthModel.findOne({ email });
         if (!user) {
-            return res.status(401).json({ error: "Invalid email or password" });
+            return handleError(res, {
+                type: 'error',
+                status: 401,
+                code: 'UNAUTHORIZED',
+                message: "Invalid email or password"
+            });
         }
         else if (user && !user.active) {
-            return res.status(403).json({ error: "User account is inactive" });
+            return handleError(res, {
+                type: 'error',
+                status: 403,
+                code: 'FORBIDDEN',
+                message: "User account is inactive"
+            });
         }
         else if (user && await comparePassword(password, user.password)) {
             const userProfile = await UserProfileModel.findOne({ user_id: user._id }).populate('user_id', "-password");
@@ -69,12 +117,29 @@ export const loginUser = async (req: Request, res: Response) => {
             const populatedUser = userProfile!.user_id as unknown as PopulatedUserIdObject;
 
             const token = generateToken(populatedUser._id.toString(), populatedUser.email);
-            res.status(200).json({ authenticated: true, userProfile, token });
+            return handleSuccess(res, {
+                type: 'success',
+                status: 200,
+                code: 'LOGIN_SUCCESS',
+                message: "User logged in successfully",
+                data: { authenticated: true, userProfile, token }
+            });
         } else {
-            res.status(401).json({ error: "Invalid email or password" });
+            return handleError(res, {
+                type: 'error',
+                status: 401,
+                code: 'UNAUTHORIZED',
+                message: "Invalid email or password"
+            });
         }
     } catch (error) {
-        handleError(error, res);
+        handleError(res, {
+            type: 'error',
+            status: 500,
+            code: 'INTERNAL_SERVER_ERROR',
+            message: "Failed to login user",
+            data: error
+        });
     }
 }
 
@@ -87,10 +152,21 @@ export const getAllUserProfiles = async (req: Request, res: Response) => {
         }
         const profiles = await UserProfileModel.find({
         }).populate('user_id', "email active");
-        res.status(200).json(profiles);
-        console.log(profiles);
+        return handleSuccess(res, {
+            type: 'success',
+            status: 200,
+            code: 'SUCCESS',
+            message: "User profiles retrieved successfully",
+            data: profiles
+        });
     } catch (error) {
-        handleError(error, res);
+        handleError(res, {
+            type: 'error',
+            status: 500,
+            code: 'INTERNAL_SERVER_ERROR',
+            message: "Failed to retrieve user profiles",
+            data: error
+        });
     }
 }
 
@@ -99,18 +175,39 @@ export const getActiveUserProfile = async (req: Request, res: Response) => {
         console.log("Requested user: ", req.user);
         console.log("Requested user ID: ", req.user?._id.toString());
         if (!req.user) {
-            return res.status(401).json({ error: "Unauthorized access" });
+            return handleError(res, {
+                type: 'error',
+                status: 401,
+                code: 'UNAUTHORIZED',
+                message: "Unauthorized access"
+            });
         }
         const activeUserProfile = await UserProfileModel.findOne({ user_id: req.user._id.toString() }).populate('user_id', "email active");
 
         if (!activeUserProfile) {
-            return res.status(404).json({ error: "User profile not found" });
+            return handleError(res, {
+                type: 'error',
+                status: 404,
+                code: 'NOT_FOUND',
+                message: "User profile not found"
+            });
         }
-        res.status(200).json(activeUserProfile);
-        console.log("Active user profile retrieved successfully:", activeUserProfile);
+        return handleSuccess(res, {
+            type: 'success',
+            status: 200,
+            code: 'SUCCESS',
+            message: "Active user profile retrieved successfully",
+            data: activeUserProfile
+        });
     } catch (error) {
         console.error("Error in getActiveUserProfile:", error);
-        handleError(error, res);
+        handleError(res, {
+            type: 'error',
+            status: 500,
+            code: 'INTERNAL_SERVER_ERROR',
+            message: "Failed to retrieve active user profile",
+            data: error
+        });
 
     }
 
@@ -122,7 +219,12 @@ export const updateUserProfile = async (req: Request, res: Response) => {
         // First check if the user is authenticated
         console.log("Updating user profile with data:", req.body);
         if (!req.user) {
-            return res.status(401).json({ error: "Unauthorized access" });
+            return handleError(res, {
+                type: 'error',
+                status: 401,
+                code: 'UNAUTHORIZED',
+                message: "Unauthorized access"
+            });
         }
 
         const dataToUpdate: { [key: string]: any } = {
@@ -148,7 +250,13 @@ export const updateUserProfile = async (req: Request, res: Response) => {
             try {
                 images = JSON.parse(images);
             } catch (e) {
-                return res.status(400).json({ error: "Invalid format for images." });
+                return handleError(res, {
+                    type: 'error',
+                    status: 400,
+                    code: 'BAD_REQUEST',
+                    message: "Invalid format for images.",
+                    data: e
+                });
             }
         }
         // Remember to handle the file upload if it exists and add the returned new image URL to the images array
@@ -162,21 +270,39 @@ export const updateUserProfile = async (req: Request, res: Response) => {
             try {
                 languages = JSON.parse(languages);
             } catch (e) {
-                return res.status(400).json({ error: "Invalid format for languages." });
+                return handleError(res, {
+                    type: 'error',
+                    status: 400,
+                    code: 'BAD_REQUEST',
+                    message: "Invalid format for languages.",
+                    data: e
+                });
             }
         }
         if (typeof social_links === 'string') {
             try {
                 social_links = JSON.parse(social_links);
             } catch (e) {
-                return res.status(400).json({ error: "Invalid format for social links." });
+                return handleError(res, {
+                    type: 'error',
+                    status: 400,
+                    code: 'BAD_REQUEST',
+                    message: "Invalid format for social links.",
+                    data: e
+                });
             }
         }
         if (typeof imagesToDelete === 'string') {
             try {
                 imagesToDelete = JSON.parse(imagesToDelete);
             } catch (e) {
-                return res.status(400).json({ error: "Invalid format for imagesToDelete." });
+                return handleError(res, {
+                    type: 'error',
+                    status: 400,
+                    code: 'BAD_REQUEST',
+                    message: "Invalid format for imagesToDelete.",
+                    data: e
+                });
             }
         }
 
@@ -211,7 +337,13 @@ export const updateUserProfile = async (req: Request, res: Response) => {
         if (Object.keys(dataToUpdate).length === 0) {
             // If only non-changing data was sent, we can return the existing profile
             const userProfile = await UserProfileModel.findOne({ user_id: req.user._id });
-            return res.status(200).json({ updated: false, userProfile, message: "No data to update" });
+            return handleSuccess(res, {
+                type: 'success',
+                status: 200,
+                code: 'NO_UPDATE',
+                message: "No data to update",
+                data: { updated: false, userProfile }
+            });
         }
 
         console.log("Final data to update:", JSON.stringify(dataToUpdate, null, 2));
@@ -220,11 +352,23 @@ export const updateUserProfile = async (req: Request, res: Response) => {
             dataToUpdate,
             { new: true }
         );
-        res.status(200).json({ updated: true, userProfile: updatedUserProfile });
+        handleSuccess(res, {
+            type: 'success',
+            status: 200,
+            code: 'USER_PROFILE_UPDATED',
+            message: "User profile updated successfully",
+            data: { updated: true, userProfile: updatedUserProfile }
+        });
         console.log("User profile updated successfully:", updatedUserProfile);
 
     } catch (error) {
         console.error("Error updating user profile:", error);
-        handleError(error, res);
+        handleError(res, {
+            type: 'error',
+            status: 500,
+            code: 'INTERNAL_SERVER_ERROR',
+            message: "Failed to update user profile",
+            data: error
+        });
     }
 }

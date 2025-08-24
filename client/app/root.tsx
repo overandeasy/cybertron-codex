@@ -4,6 +4,7 @@ import {
   Meta,
   Navigate,
   Outlet,
+  redirect,
   Scripts,
   ScrollRestoration,
 } from "react-router";
@@ -46,7 +47,11 @@ export async function clientLoader() {
       "Failed to fetch user profile, token might be invalid.",
       error
     );
-    return <Navigate to="/auth/sign-in" />;
+    // Clear invalid token and redirect to sign-in.
+    try {
+      localStorage.removeItem("token");
+    } catch {}
+    throw redirect("/auth/sign-in");
   }
 }
 

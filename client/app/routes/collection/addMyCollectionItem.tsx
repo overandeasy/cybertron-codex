@@ -145,7 +145,10 @@ export default function AddMyCollectionItem() {
       // navigate("/collection/my-collection");
     } catch (error) {
       console.error("Failed to add collection:", error);
-      themeToast("fail", "Failed to add collection item.");
+      themeToast(
+        "fail",
+        error instanceof Error ? error.message : "Failed to add collection"
+      );
     } finally {
       setIsSubmitting(false);
     }

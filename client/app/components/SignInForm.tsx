@@ -35,10 +35,10 @@ function SignInForm() {
   const onSubmit = () => {
     startSignInTransition(async () => {
       const signInResult = await signIn(form.getValues());
-      signInResult?.error
+      signInResult instanceof Error
         ? form.setError("root", {
             type: "manual",
-            message: `An error occured. Please try again. ${signInResult.error.message}`,
+            message: `An error occured. Please try again. ${signInResult.message}`,
           })
         : (form.reset(), route("/home"));
     });

@@ -72,7 +72,7 @@ export const DeleteCollectionItemButton = (
                 setOpen(true);
                 await deleteCollectionItem(collectionItem._id).then(
                   (deletionResult) => {
-                    if (deletionResult.success) {
+                    if (deletionResult.type === "success") {
                       themeToast(
                         "success",
                         "Collection item deleted successfully.",

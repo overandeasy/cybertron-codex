@@ -2,10 +2,6 @@ import Logo from "~/components/Logo";
 
 import { Link, useRouteLoaderData } from "react-router";
 import type { Route } from "./+types/landingPage";
-import type { Loader } from "lucide-react";
-import { getActiveUserProfile } from "~/api/user";
-import type { UserProfile } from "~/lib/zod";
-import type { clientLoader } from "~/root";
 
 export function meta({}: Route.MetaArgs) {
   return [

@@ -13,7 +13,7 @@ import { Textarea } from "~/components/ui/textarea";
 import { Badge } from "~/components/ui/badge";
 import { X, Upload, Trash2 } from "lucide-react";
 import type { UserCollection } from "~/lib/zod";
-import { editCollection, getCollectionById } from "~/api/collection";
+import { editCollection } from "~/api/collection";
 import type { Route } from "./+types/editMyCollectionItem";
 import { themeToast } from "~/components/ThemeToast";
 
@@ -222,7 +222,7 @@ export default function EditMyCollectionItem() {
       // TODO: Implement updateCollection API call
       const result = await editCollection(params._id!, formDataToSubmit);
 
-      if (result.success) {
+      if (result.type === "success") {
         themeToast(
           "success",
           "Collection updated successfully",
@@ -236,7 +236,10 @@ export default function EditMyCollectionItem() {
     } catch (error) {
       console.error("Failed to update collection:", error);
       // Show error message to user
-      themeToast("fail", "Failed to update collection");
+      themeToast(
+        "fail",
+        error instanceof Error ? error.message : "Failed to update collection"
+      );
     } finally {
       setIsSubmitting(false);
     }

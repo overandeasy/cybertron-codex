@@ -1,5 +1,7 @@
 import { baseUrl } from "~/lib/baseUrl";
-import type { SignInFormData, SignUpFormData } from "~/lib/zod";
+import { handleApiError, isApiError } from "~/lib/utils";
+import type { SignInFormData, SignUpFormData, UserProfile } from "~/lib/zod";
+import type { ApiResponse } from "~/type/apiResponse";
 
 export async function signIn(data: SignInFormData) {
 
@@ -13,19 +15,23 @@ export async function signIn(data: SignInFormData) {
         });
 
         if (!response.ok) {
-            const errorData = await response.json();
+            const errorData: ApiResponse<null> = await response.json();
             console.error("Sign-in failed:", errorData);
-            return errorData; // From the server side, the error message is already in a JSON format object formatted as { error: "message" }
+            throw handleApiError(errorData);
         }
-        const successData = await response.json();
-        localStorage.setItem("token", successData.token);
+        const successData: ApiResponse<{ registered: boolean; userProfile: UserProfile; token: string }> = await response.json();
+        localStorage.setItem("token", successData.data!.token);
 
         console.log("Sign-in successful", successData);
-        return successData; // This will return three properties: {registered: true, userProfile, token}
-    } catch (error) {
-        console.error("Sign-in error:", error);
-        return { error: "An unexpected error occurred." };
-
+        return successData.data; // The data object contains three properties: {registered: true, userProfile, token}
+    } catch (error: unknown) {
+        // isApiError is a type guard function to check if the error object conforms to the ApiResponse<null> structure.
+        if (isApiError(error)) {
+            console.error("Typed API error:", error.code);
+            throw error;
+        }
+        console.error("Unknown error:", error);
+        throw error;
     }
 
 }
@@ -37,6 +43,7 @@ export async function signOut() {
         console.log("Sign-out successful");
     } catch (error) {
         console.error("Sign-out error:", error);
+        throw error;
     }
 }
 
@@ -52,16 +59,20 @@ export async function signUp(data: SignUpFormData) {
         });
 
         if (!response.ok) {
-            const errorData = await response.json();
+            const errorData: ApiResponse<null> = await response.json();
             console.error("Sign-up failed:", errorData);
-            return errorData; // From the server side, the error message is already in a JSON format object formatted as { error: "message" }
+            throw handleApiError(errorData);
         }
-        const successData = await response.json();
-        localStorage.setItem("token", successData.token);
+        const successData: ApiResponse<{ authenticated: boolean; userProfile: UserProfile; token: string }> = await response.json();
+        localStorage.setItem("token", successData.data!.token);
         console.log("Sign-up successful", successData);
-        return successData; // This will return three properties: {registered: true, userProfile, token}
-    } catch (error) {
-        console.error("Sign-up error:", error);
-        return { error: "An unexpected error occurred." };
+        return successData.data; // The data object contains three properties: {registered: true, userProfile, token}
+    } catch (error: any) {
+        //The error object is typed as <ApiResponse<null>> as defined in server/utils/handleError.ts. Functions can leverage this type to handle errors consistently. 
+        if (isApiError(error)) {
+            console.error("Typed API error:", error.code);
+            throw error;
+        }
+        throw error;
     }
 }

@@ -23,8 +23,6 @@ export function meta({}: Route.MetaArgs) {
   ];
 }
 
-export const handle = { breadcrumb: "Edit Profile" };
-
 export default function EditMyProfile() {
   const loaderData = useRouteLoaderData("root");
   const userProfile = loaderData?.userProfile;
@@ -42,6 +40,14 @@ export default function EditMyProfile() {
     UserProfile | { error: string } | null
   >(null);
   const navigate = useNavigate();
+
+  if (localStorage.getItem("token") === null) {
+    console.warn("No auth token found in localStorage.");
+    return <Navigate to="/auth/sign-in" replace />;
+  }
+  if (!userProfile) {
+    return <div>Loading profile...</div>;
+  }
 
   // Effect 1: ONLY for initializing state from the loader. Runs once.
   useEffect(() => {
@@ -131,83 +137,63 @@ export default function EditMyProfile() {
 
   const handleFormSubmit = async (data: UserProfileFormData) => {
     setIsSubmitting(true);
-    // console.log("Form Data Received:", data);
-    // console.log("New Image File to Upload:", newImageFile);
-    // console.log("Images Marked for Deletion:", imagesToDelete);
+    setUpdateUserProfileResult(null);
+    try {
+      const formData = new FormData();
 
-    const formData = new FormData();
-
-    // 1. Append the new image file if it exists.
-    // The field name 'newImage' must match what your multer middleware expects on the route.
-    if (newImageFile) {
-      formData.append("new_profile_image", newImageFile);
-    }
-
-    // 2. Append the list of images to delete as a JSON string.
-    if (imagesToDelete.length > 0) {
-      formData.append("imagesToDelete", JSON.stringify(imagesToDelete));
-    }
-
-    // 3. Append each text field individually.
-    // Use a loop to avoid many 'if (data.field)' checks.
-    for (const key in data) {
-      const value = data[key as keyof UserProfileFormData];
-
-      // Skip the newImage field from the form data, as it's handled separately.
-      if (key === "newImage") continue;
-
-      if (value !== undefined && value !== null) {
-        // 4. IMPORTANT: Stringify arrays/objects before appending.
-        if (
-          Array.isArray(value) ||
-          (typeof value === "object" && value !== null)
-        ) {
-          formData.append(key, JSON.stringify(value));
-        } else {
-          formData.append(key, String(value));
+      if (newImageFile) formData.append("new_profile_image", newImageFile);
+      if (imagesToDelete.length > 0)
+        formData.append("imagesToDelete", JSON.stringify(imagesToDelete));
+      for (const key in data) {
+        if (key === "newImage") continue;
+        const value = data[key as keyof UserProfileFormData];
+        if (value !== undefined && value !== null) {
+          if (
+            Array.isArray(value) ||
+            (typeof value === "object" && value !== null)
+          ) {
+            formData.append(key, JSON.stringify(value));
+          } else {
+            formData.append(key, String(value));
+          }
         }
       }
-    }
+      formData.append("images", JSON.stringify(images));
 
-    // The images field is probably modified by the user and can be empty if user removed all images, so we need to append it as a JSON string to set the database no matter what.
-    formData.append("images", JSON.stringify(images));
+      console.log("--- FormData to be sent ---");
+      for (let [key, value] of formData.entries()) console.log(key, value);
+      console.log("---------------------------");
 
-    console.log("--- FormData to be sent ---");
-    for (let [key, value] of formData.entries()) {
-      console.log(key, value);
-    }
-    console.log("---------------------------");
+      const res = await updateUserProfile(formData);
 
-    const res = await updateUserProfile(formData);
-    const updateUserProfileResult = await res.json();
-    if (!res.ok) {
-      setUpdateUserProfileResult({
-        error: updateUserProfileResult.error || "Unknown error",
-      });
+      if (res?.updated) {
+        setUpdateUserProfileResult(res.userProfile);
+        themeToast(
+          "success",
+          "Profile updated successfully.",
+          "/user/my-profile",
+          navigate
+        );
+        console.log("Response from updateUserProfile:", res);
+        return;
+      }
+
+      // // handle API-level failure
+      // setUpdateUserProfileResult({ error: "Unknown error" });
+      // themeToast("fail", "Failed to update profile. Please try again.");
+      // console.log("Response from updateUserProfile (failure):", res);
+    } catch (error: any) {
+      console.error("Error calling updateUserProfile:", error);
+      setUpdateUserProfileResult(
+        error instanceof Error
+          ? { error: error.message }
+          : { error: "Unknown error" }
+      );
       themeToast("fail", "Failed to update profile. Please try again.");
+    } finally {
       setIsSubmitting(false);
-      return;
     }
-    setUpdateUserProfileResult(updateUserProfileResult);
-    themeToast(
-      "success",
-      "Profile updated successfully.",
-      "/user/my-profile",
-      navigate
-    );
-
-    setIsSubmitting(false);
-
-    console.log("Response from updateUserProfile:", updateUserProfileResult);
   };
-
-  if (localStorage.getItem("token") === null) {
-    console.warn("No auth token found in localStorage.");
-    return <Navigate to="/auth/sign-in" replace />;
-  }
-  if (!userProfile) {
-    return <div>Loading profile...</div>;
-  }
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-5 gap-8">
