@@ -50,7 +50,7 @@ export const DeleteCollectionItemButton = (
   return (
     <AlertDialog open={open} onOpenChange={(open) => setOpen(open)}>
       <AlertDialogTrigger asChild>
-        <Button size="sm" variant="destructive">
+        <Button size="sm" variant="theme_decepticon">
           <Trash2 className="w-4 h-4 mr-2" />
           Delete
         </Button>

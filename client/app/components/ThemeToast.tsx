@@ -37,7 +37,13 @@ export const themeToast = (
 
           {/* optional close button */}
           <button
-            onClick={() => toast.dismiss(id)}
+            onClick={() => {
+              toast.dismiss(id);
+              if (location && navigate) {
+                console.log("Navigating to:", location);
+                navigate(location);
+              }
+            }}
             className="ml-4 text-sm opacity-70"
             aria-label="close"
           >

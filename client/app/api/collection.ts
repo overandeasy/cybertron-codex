@@ -139,3 +139,111 @@ export const deleteCollectionItem = async (collectionId: string) => {
         throw error; //At least a .message property is expected.
     }
 }
+
+export const getComments = async (collectionId: string) => {
+    const response = await fetch(`${baseUrl}/collection/my-collection/${collectionId}/comments`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+    });
+    if (!response.ok) {
+        const errorData = await response.json();
+        throw handleApiError(errorData);
+    }
+    const result = await response.json();
+    return result.data;
+};
+
+export const addComment = async (collectionId: string, content: string) => {
+    const response = await fetch(`${baseUrl}/collection/my-collection/${collectionId}/comments`, {
+        method: 'POST',
+        headers: {
+            Authorization: `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ content })
+    });
+    if (!response.ok) {
+        const errorData = await response.json();
+        throw handleApiError(errorData);
+    }
+    const result = await response.json();
+    return result.data;
+};
+
+export const editComment = async (collectionId: string, commentId: string, content: string) => {
+    const response = await fetch(`${baseUrl}/collection/my-collection/${collectionId}/comments/${commentId}`, {
+        method: 'PATCH',
+        headers: {
+            Authorization: `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ content })
+    });
+    if (!response.ok) {
+        const errorData = await response.json();
+        throw handleApiError(errorData);
+    }
+    const result = await response.json();
+    return result.data;
+};
+
+export const deleteComment = async (collectionId: string, commentId: string) => {
+    const response = await fetch(`${baseUrl}/collection/my-collection/${collectionId}/comments/${commentId}`, {
+        method: 'DELETE',
+        headers: {
+            Authorization: `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json'
+        }
+    });
+    if (!response.ok) {
+        const errorData = await response.json();
+        throw handleApiError(errorData);
+    }
+    const result = await response.json();
+    return result;
+};
+
+export const getMyFavorites = async () => {
+    const response = await fetch(`${baseUrl}/collection/my-collection/favorites`, {
+        headers: {
+            Authorization: `Bearer ${localStorage.getItem('token')}`
+        }
+    });
+    if (!response.ok) {
+        const errorData = await response.json();
+        throw handleApiError(errorData);
+    }
+    const result = await response.json();
+    return result.data;
+};
+
+export const addFavorite = async (collectionId: string) => {
+    const response = await fetch(`${baseUrl}/collection/my-collection/${collectionId}/favorite`, {
+        method: 'POST',
+        headers: {
+            Authorization: `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json'
+        }
+    });
+    if (!response.ok) {
+        const errorData = await response.json();
+        throw handleApiError(errorData);
+    }
+    const result = await response.json();
+    return result.data;
+};
+
+export const removeFavorite = async (collectionId: string) => {
+    const response = await fetch(`${baseUrl}/collection/my-collection/${collectionId}/favorite`, {
+        method: 'DELETE',
+        headers: {
+            Authorization: `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json'
+        }
+    });
+    if (!response.ok) {
+        const errorData = await response.json();
+        throw handleApiError(errorData);
+    }
+    const result = await response.json();
+    return result.data;
+};

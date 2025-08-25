@@ -38,13 +38,17 @@ function SignUpForm() {
 
   const onSubmit = () => {
     startSignUpTransition(async () => {
-      const signUpResult = await signUp(form.getValues());
-      signUpResult?.error
-        ? form.setError("root", {
-            type: "manual",
-            message: `An error occured. Please try again. ${signUpResult.error.message}`,
-          })
-        : (form.reset(), route("/home"));
+      try {
+        const signUpResult = await signUp(form.getValues());
+        // On success the API helper stores the token and returns data; navigate and reset form
+        form.reset();
+        route("/home");
+      } catch (error: any) {
+        form.setError("root", {
+          type: "manual",
+          message: `An error occurred. Please try again. ${error?.message ?? ""}`,
+        });
+      }
     });
   };
 

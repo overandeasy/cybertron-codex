@@ -10,14 +10,20 @@ import {
 } from "../ui/card";
 import { Badge } from "../ui/badge";
 import { ImageOffIcon } from "lucide-react";
+import { Star } from "lucide-react";
+import { Button } from "../ui/button";
 
 function CollectionCardSummary({
   collectionItem,
   isOwner,
+  isFavorited,
+  onToggleFavorite,
   ...props // Accept additional props so parent component's asChild would work
 }: {
   collectionItem: UserCollection;
   isOwner: boolean | null;
+  isFavorited?: boolean;
+  onToggleFavorite?: () => void;
 }) {
   const lastMediaImage =
     collectionItem.media_images && collectionItem.media_images.length > 0
@@ -49,6 +55,29 @@ function CollectionCardSummary({
           >
             {collectionItem.character_primary_faction}
           </Badge>
+          {onToggleFavorite && (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleFavorite();
+              }}
+              className="ml-2"
+            >
+              <Star
+                fill={isFavorited ? "currentColor" : "none"}
+                strokeWidth={1}
+                aria-hidden
+                role="img"
+                className={
+                  isFavorited
+                    ? "w-5 h-5 text-yellow-400"
+                    : "w-5 h-5 text-muted-foreground"
+                }
+              />
+            </Button>
+          )}
         </div>
         <CardDescription className="line-clamp-1 h-5">
           {collectionItem.character_description}

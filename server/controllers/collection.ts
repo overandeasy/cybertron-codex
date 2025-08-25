@@ -3,6 +3,8 @@ import UserCollectionModel, { userCollectionDocument } from "../db_models/user_c
 import { handleError, handleSuccess } from "../utils/handleServerApiResponse";
 import { uploadImage } from "../utils/cloudinaryOperations";
 import { removeImages } from "../utils/cloudinaryOperations";
+import CollectionCommentModel from "../db_models/collection_comment";
+import UserFavoriteModel from "../db_models/user_favorite";
 
 // This function is not being used. 
 // export const getAllCollections = async (req: Request, res: Response) => {
@@ -27,7 +29,7 @@ import { removeImages } from "../utils/cloudinaryOperations";
 export const getAllPublicCollections = async (req: Request, res: Response) => {
     try {
 
-        console.log("Requested user ID: ", req.user?._id.toString());
+        console.log("Requested user ID: ", req.user?._id?.toString());
         if (!req.user) {
             return handleError(res, {
                 type: 'error',
@@ -65,7 +67,7 @@ export const getAllPublicCollections = async (req: Request, res: Response) => {
 export const getMyCollection = async (req: Request, res: Response) => {
     try {
 
-        console.log("Requested user ID: ", req.user?._id.toString());
+        console.log("Requested user ID: ", req.user?._id?.toString());
         console.log("Requested user profile ID: ", req.user?.profile_id);
         if (!req.user) {
             return handleError(res, {
@@ -102,7 +104,7 @@ export const getCollectionItemById = async (req: Request, res: Response) => {
     try {
         const collectionId: string = req.params.collectionId;
         console.log("Requested collection ID: ", collectionId);
-        console.log("Requested user ID: ", req.user?._id.toString());
+        console.log("Requested user ID: ", req.user?._id?.toString());
         console.log("Requested user profile ID: ", req.user?.profile_id);
         if (!req.user) {
             return handleError(res, {
@@ -155,7 +157,7 @@ export const addUserCollection = async (req: Request, res: Response) => {
             });
         }
 
-        const userId = req.user._id.toString();
+        const userId = req.user._id?.toString();
 
 
         // Destructure all fields from the body according to userCollectionSchema
@@ -326,6 +328,100 @@ export const addUserCollection = async (req: Request, res: Response) => {
     }
 };
 
+// Favorites handlers
+export const getMyFavorites = async (req: Request, res: Response) => {
+    try {
+        if (!req.user) {
+            return handleError(res, {
+                type: 'error',
+                status: 401,
+                code: 'UNAUTHORIZED',
+                message: 'Unauthorized access',
+            });
+        }
+        // include user_id in the nested profile population so the client can
+        // determine ownership (used to show Edit/Delete controls)
+        const favorites = await UserFavoriteModel.find({ user_profile_id: req.user.profile_id }).populate({ path: 'collection_item_id', populate: { path: 'user_profile_id', select: 'user_id first_name last_name' } }).sort({ createdAt: -1 });
+        return handleSuccess(res, {
+            type: 'success',
+            status: 200,
+            code: 'SUCCESS',
+            message: 'Favorites retrieved',
+            data: favorites,
+        });
+    } catch (err) {
+        handleError(res, {
+            type: 'error',
+            status: 500,
+            code: 'INTERNAL_SERVER_ERROR',
+            message: 'Failed to retrieve favorites',
+            data: err
+        });
+    }
+};
+
+export const addFavorite = async (req: Request, res: Response) => {
+    try {
+        if (!req.user) {
+            return handleError(res, {
+                type: 'error',
+                status: 401,
+                code: 'UNAUTHORIZED',
+                message: 'Unauthorized access',
+            });
+        }
+        const collectionItemId = req.params.collectionId;
+        if (!collectionItemId) {
+            return handleError(res, { type: 'error', status: 400, code: 'BAD_REQUEST', message: 'collectionId required' });
+        }
+        // ensure not duplicated
+        const exists = await UserFavoriteModel.findOne({ user_profile_id: req.user.profile_id, collection_item_id: collectionItemId });
+        if (exists) {
+            return handleSuccess(res, { type: 'success', status: 200, code: 'ALREADY_FAVORITED', message: 'Already favorited', data: exists });
+        }
+        const created = await UserFavoriteModel.create({ user_profile_id: req.user.profile_id, collection_item_id: collectionItemId });
+        return handleSuccess(res, { type: 'success', status: 201, code: 'FAVORITED', message: 'Collection item favorited', data: created });
+    } catch (err) {
+        handleError(res, {
+            type: 'error',
+            status: 500,
+            code: 'INTERNAL_SERVER_ERROR',
+            message: 'Failed to add favorite',
+            data: err
+        });
+    }
+};
+
+export const removeFavorite = async (req: Request, res: Response) => {
+    try {
+        if (!req.user) {
+            return handleError(res, {
+                type: 'error',
+                status: 401,
+                code: 'UNAUTHORIZED',
+                message: 'Unauthorized access',
+            });
+        }
+        const collectionItemId = req.params.collectionId;
+        if (!collectionItemId) {
+            return handleError(res, { type: 'error', status: 400, code: 'BAD_REQUEST', message: 'collectionId required' });
+        }
+        const deleted = await UserFavoriteModel.findOneAndDelete({ user_profile_id: req.user.profile_id, collection_item_id: collectionItemId });
+        if (!deleted) {
+            return handleError(res, { type: 'error', status: 404, code: 'NOT_FOUND', message: 'Favorite not found' });
+        }
+        return handleSuccess(res, { type: 'success', status: 200, code: 'UNFAVORITED', message: 'Favorite removed' });
+    } catch (err) {
+        handleError(res, {
+            type: 'error',
+            status: 500,
+            code: 'INTERNAL_SERVER_ERROR',
+            message: 'Failed to remove favorite',
+            data: err
+        });
+    }
+};
+
 
 // Function for editing user collections
 export const editUserCollectionById = async (req: Request, res: Response) => {
@@ -343,7 +439,7 @@ export const editUserCollectionById = async (req: Request, res: Response) => {
                 message: "Unauthorized access"
             });
         }
-        const userId = req.user._id.toString();
+        const userId = req.user._id?.toString();
         const userProfileId = req.user.profile_id; // This was attached to the http request during the validate token process
         const collectionItemId: string = req.params.itemId; // Get collection ID from URL params
 
@@ -609,7 +705,7 @@ export const deleteUserCollectionItem = async (req: Request, res: Response) => {
         // Ensure the collection belongs to the authenticated user
         console.log("Collection item user profile ID:", collectionItem.user_profile_id);
         console.log("Requesting user ID:", req.user?._id);
-        if (collectionItem.user_profile_id.user_id.toString() !== req.user?._id.toString()) {
+        if (String(collectionItem.user_profile_id?.user_id) !== String(req.user?._id)) {
             console.error("Unauthorized deletion attempt by user:", req.user?._id);
             return res.status(403).json({ error: "Unauthorized to delete this collection" });
         }
@@ -626,6 +722,16 @@ export const deleteUserCollectionItem = async (req: Request, res: Response) => {
         // Delete the collection from the database
         const result = await UserCollectionModel.findByIdAndDelete(itemId);
         if (result) {
+            // Clean up related documents: comments and favorites referencing this collection
+            try {
+                const commentsDeleted = await CollectionCommentModel.deleteMany({ collection_item_id: itemId });
+                const favoritesDeleted = await UserFavoriteModel.deleteMany({ collection_item_id: itemId });
+                console.log(`Deleted collection ${itemId} and cleaned up ${commentsDeleted.deletedCount || 0} comments and ${favoritesDeleted.deletedCount || 0} favorites`);
+            } catch (cleanupErr) {
+                // Log cleanup failures but still return success for the collection deletion
+                console.error('Failed to clean up related comments/favorites for collection', itemId, cleanupErr);
+            }
+
             return handleSuccess(res, {
                 type: 'success',
                 status: 200,
@@ -649,5 +755,146 @@ export const deleteUserCollectionItem = async (req: Request, res: Response) => {
             message: "Failed to delete collection item",
             data: error
         });
+    }
+};
+
+// Comments
+export const getCommentsForCollection = async (req: Request, res: Response) => {
+    try {
+        const { collectionId } = req.params;
+        if (!req.user) {
+            return handleError(res, {
+                type: 'error',
+                status: 401,
+                code: 'UNAUTHORIZED',
+                message: 'Unauthorized access'
+            });
+        }
+        const comments = await CollectionCommentModel.find({ collection_item_id: collectionId }).populate('user_profile_id', 'user_id first_name last_name').sort({ createdAt: -1 });
+        return handleSuccess(res, {
+            type: 'success',
+            status: 200,
+            code: 'SUCCESS',
+            message: 'Comments retrieved successfully',
+            data: comments
+        });
+    } catch (error) {
+        return handleError(res, {
+            type: 'error',
+            status: 500,
+            code: 'INTERNAL_SERVER_ERROR',
+            message: 'Failed to fetch comments',
+            data: error
+        });
+    }
+};
+
+export const addCommentToCollection = async (req: Request, res: Response) => {
+    try {
+        const { collectionId } = req.params;
+        const { content } = req.body;
+        if (!req.user || !req.user.profile_id) {
+            return handleError(res, {
+                type: 'error',
+                status: 401,
+                code: 'UNAUTHORIZED',
+                message: 'Unauthorized access'
+            });
+        }
+        if (!content || typeof content !== 'string' || !content.trim()) {
+            return handleError(res, {
+                type: 'error',
+                status: 400,
+                code: 'VALIDATION_ERROR',
+                message: 'Comment content cannot be empty'
+            });
+        }
+
+        // Ensure collection exists
+        const collection = await UserCollectionModel.findById(collectionId);
+        if (!collection) {
+            return handleError(res, {
+                type: 'error',
+                status: 404,
+                code: 'NOT_FOUND',
+                message: 'Collection not found'
+            });
+        }
+
+        const newComment = new CollectionCommentModel({
+            collection_item_id: collectionId,
+            user_profile_id: req.user.profile_id,
+            content: content.trim(),
+        });
+
+        const saved = await newComment.save();
+        return handleSuccess(res, {
+            type: 'success',
+            status: 201,
+            code: 'COMMENT_CREATED',
+            message: 'Comment added successfully',
+            data: saved
+        });
+    } catch (error) {
+        return handleError(res, {
+            type: 'error',
+            status: 500,
+            code: 'INTERNAL_SERVER_ERROR',
+            message: 'Failed to add comment',
+            data: error
+        });
+    }
+};
+
+export const editComment = async (req: Request, res: Response) => {
+    try {
+        const { collectionId, commentId } = req.params;
+        const { content } = req.body;
+        if (!req.user || !req.user.profile_id) {
+            return handleError(res, { type: 'error', status: 401, code: 'UNAUTHORIZED', message: 'Unauthorized access' });
+        }
+        if (!content || typeof content !== 'string' || !content.trim()) {
+            return handleError(res, { type: 'error', status: 400, code: 'VALIDATION_ERROR', message: 'Content cannot be empty' });
+        }
+
+        const comment = await CollectionCommentModel.findById(commentId);
+        if (!comment) {
+            return handleError(res, { type: 'error', status: 404, code: 'NOT_FOUND', message: 'Comment not found' });
+        }
+
+        // Owner-only
+        if (String(comment.user_profile_id) !== String(req.user.profile_id)) {
+            return handleError(res, { type: 'error', status: 403, code: 'FORBIDDEN', message: 'Not authorized to edit this comment' });
+        }
+
+        comment.content = content.trim();
+        const saved = await comment.save();
+        return handleSuccess(res, { type: 'success', status: 200, code: 'COMMENT_UPDATED', message: 'Comment updated', data: saved });
+    } catch (error) {
+        return handleError(res, { type: 'error', status: 500, code: 'INTERNAL_SERVER_ERROR', message: 'Failed to edit comment', data: error });
+    }
+};
+
+export const deleteComment = async (req: Request, res: Response) => {
+    try {
+        const { collectionId, commentId } = req.params;
+        if (!req.user || !req.user.profile_id) {
+            return handleError(res, { type: 'error', status: 401, code: 'UNAUTHORIZED', message: 'Unauthorized access' });
+        }
+
+        const comment = await CollectionCommentModel.findById(commentId);
+        if (!comment) {
+            return handleError(res, { type: 'error', status: 404, code: 'NOT_FOUND', message: 'Comment not found' });
+        }
+
+        // Owner-only
+        if (String(comment.user_profile_id) !== String(req.user.profile_id)) {
+            return handleError(res, { type: 'error', status: 403, code: 'FORBIDDEN', message: 'Not authorized to delete this comment' });
+        }
+
+        await CollectionCommentModel.findByIdAndDelete(commentId);
+        return handleSuccess(res, { type: 'success', status: 200, code: 'COMMENT_DELETED', message: 'Comment deleted' });
+    } catch (error) {
+        return handleError(res, { type: 'error', status: 500, code: 'INTERNAL_SERVER_ERROR', message: 'Failed to delete comment', data: error });
     }
 };

@@ -5,7 +5,9 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "nodemon index.ts"
+    "dev": "nodemon index.ts",
+    "migrate:collection-comments": "echo \"Migration script has been archived. See server/scripts/archived/migrate_collection_comments.ts for audit only. Do not run.\"",
+    "verify:migration": "ts-node ./scripts/verify_migration.ts"
   },
   "keywords": [],
   "author": "",

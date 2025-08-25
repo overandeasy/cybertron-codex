@@ -1,4 +1,4 @@
-import { HomeIcon, Library, LogOut, Plus, User } from "lucide-react";
+import { HomeIcon, Library, LogOut, Plus, Star, User } from "lucide-react";
 import {
   NavigationMenu,
   NavigationMenuItem,
@@ -44,6 +44,15 @@ function NavMenu() {
                 <span className="hidden sm:flex"> Collection</span>
               </NavigationMenuLink>
             </NavigationMenuItem>
+            <NavigationMenuItem>
+              <NavigationMenuLink
+                href="/collection/my-favorites"
+                className="flex flex-row items-center gap-2"
+              >
+                <Star className="w-4 h-4" />
+                <span className="hidden sm:flex"> Favorites</span>
+              </NavigationMenuLink>
+            </NavigationMenuItem>
           </NavigationMenuList>
         </NavigationMenu>
 
@@ -67,7 +76,7 @@ function NavMenu() {
             }}
           >
             <LogOut />
-            <span className="hidden sm:flex"> Log out</span>
+            <span className="hidden sm:flex"> Sign out</span>
           </Button>
         </div>
       </div>
