@@ -8,6 +8,7 @@ import {
   type UserProfileFormData,
   SOCIAL_KEYS,
 } from "~/lib/zod";
+import { socialKeyLabel } from "~/lib/social";
 
 import {
   Form,
@@ -271,7 +272,7 @@ export function UserProfileForm({
             ))}
             <Button
               type="button"
-              variant="outline"
+              // variant="theme_autobot"
               size="sm"
               onClick={() => appendLanguage({ name: "" })}
             >
@@ -302,7 +303,7 @@ export function UserProfileForm({
                         <SelectContent>
                           {SOCIAL_KEYS.map((key) => (
                             <SelectItem key={key} value={key}>
-                              {key}
+                              {socialKeyLabel(key)}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -336,22 +337,27 @@ export function UserProfileForm({
           ))}
           <Button
             type="button"
-            variant="outline"
+            // variant="theme_autobot"
             size="sm"
-            onClick={() => appendSocialLink({ key: "Other", value: "" })}
+            onClick={() => appendSocialLink({ key: "website", value: "" })}
           >
             Add Social Link
           </Button>
         </div>
 
         <div className="flex flex-col gap-2 pt-4">
-          <Button className="w-full" disabled={isSubmitting} type="submit">
+          <Button
+            // variant={"theme_autobot"}
+            className="w-full"
+            disabled={isSubmitting}
+            type="submit"
+          >
             {isSubmitting ? "Saving Changes..." : "Save Changes"}
           </Button>
           <Button
             className="w-full"
             type="button"
-            variant="secondary"
+            // variant="theme_decepticon"
             onClick={() => navigate(-1)}
             disabled={isSubmitting}
           >

@@ -26,8 +26,8 @@ function CollectionCardSummary({
   onToggleFavorite?: () => void;
 }) {
   const lastMediaImage =
-    collectionItem.media_images && collectionItem.media_images.length > 0
-      ? collectionItem.media_images[collectionItem.media_images.length - 1]
+    collectionItem.toy_images && collectionItem.toy_images.length > 0
+      ? collectionItem.toy_images[collectionItem.toy_images.length - 1]
       : null;
   return (
     <Card
@@ -36,6 +36,7 @@ function CollectionCardSummary({
     >
       <CardHeader>
         <CardTitle>{collectionItem.character_name}</CardTitle>
+        {/* Price moved to parent CollectionCard for placement before Acquisition Date */}
         <div className="flex items-center gap-1">
           <img
             src={

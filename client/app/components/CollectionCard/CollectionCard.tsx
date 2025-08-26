@@ -41,6 +41,7 @@ import type { UserCollection, UserProfile } from "~/lib/zod";
 
 import CollectionCardSummary from "./CollectionCardSummary";
 import { DeleteCollectionItemButton } from "./DeleteCollectionItemButton";
+// currency formatting will use Intl.NumberFormat inline
 
 // interface CollectionCardProps {
 //   targetCollection: UserCollection[];
@@ -219,6 +220,19 @@ export default function CollectionCard(props: {
               <div>
                 <h4 className="text-sm font-medium">Collection Notes</h4>
                 <p className="text-sm">{collectionItem.collection_notes}</p>
+              </div>
+            )}
+
+            {/* Price: show before Acquisition Date */}
+            {typeof (collectionItem as any).price === "number" && (
+              <div>
+                <h4 className="text-sm font-medium">Price</h4>
+                <p className="text-sm">
+                  {new Intl.NumberFormat(undefined, {
+                    style: "currency",
+                    currency: (collectionItem as any).currency || "USD",
+                  }).format((collectionItem as any).price)}
+                </p>
               </div>
             )}
 
@@ -449,6 +463,7 @@ function CommentsColumn({
                       <div className="flex gap-2 justify-end mt-1">
                         <Button
                           size="sm"
+                          variant="theme_autobot"
                           onClick={async () => {
                             try {
                               if (!editingId) return;
@@ -481,7 +496,7 @@ function CommentsColumn({
                         </Button>
                         <Button
                           size="sm"
-                          variant="ghost"
+                          variant="theme_decepticon"
                           onClick={() => {
                             setEditingId(null);
                             setEditingContent("");

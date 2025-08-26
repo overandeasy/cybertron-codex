@@ -17,6 +17,7 @@ const userProfileSchema = new mongoose.Schema(
         first_name: { type: String, default: '' },
         last_name: { type: String, default: '' },
         images: { type: [String], default: [] },
+        primary_profile_image: { type: String, default: null },
         country: { type: String, default: '' },
         languages: { type: [Object], default: [{ name: "" }] },
         faction: { type: String, enum: ['Autobot', 'Decepticon', ''], default: '' },

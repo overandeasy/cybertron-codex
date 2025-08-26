@@ -1,5 +1,4 @@
-import { useMatches, useLocation, Link } from "react-router";
-import { boolean } from "zod/v4";
+import { useLocation, Link } from "react-router";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -8,16 +7,6 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "~/components/ui/breadcrumb";
-
-interface BreadcrumbMatch {
-  id: string;
-  pathname: string;
-  params: Record<string, string>;
-  data: any;
-  handle?: {
-    breadcrumb?: string;
-  };
-}
 
 export function AppBreadcrumbs() {
   const location = useLocation();

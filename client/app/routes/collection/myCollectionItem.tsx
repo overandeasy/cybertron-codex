@@ -3,17 +3,6 @@ import { useState, useEffect, type ComponentPropsWithRef } from "react";
 import { Link, useParams, useRouteLoaderData } from "react-router";
 import { DeleteCollectionItemButton } from "~/components/CollectionCard/DeleteCollectionItemButton";
 import { themeToast } from "~/components/ThemeToast";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "~/components/ui/alert-dialog";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import {
@@ -72,6 +61,33 @@ export default function MyCollectionItem() {
 
   return (
     <div className="space-y-6">
+      {/* Top header: title area with action buttons aligned right */}
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">
+            {collectionItem.character_name}
+          </h1>
+        </div>
+        <div className="flex items-center">
+          {isOwner && (
+            <div className="flex gap-2">
+              <Button asChild size="sm" variant="theme_autobot">
+                <Link
+                  to={`/collection/my-collection/${collectionItem._id}/edit`}
+                >
+                  <Pencil className="w-4 h-4 mr-1" /> Edit
+                </Link>
+              </Button>
+              <Button size="sm" asChild>
+                <DeleteCollectionItemButton
+                  collectionItem={collectionItem}
+                  location="/collection/my-collection"
+                />
+              </Button>
+            </div>
+          )}
+        </div>
+      </div>
       <div className="grid gap-6 md:grid-cols-3">
         {/* Left column: character+acq (side-by-side) and images below */}
         <div className="md:col-span-2 flex flex-col gap-6">
@@ -86,7 +102,7 @@ export default function MyCollectionItem() {
                         ? "theme_autobot"
                         : "theme_decepticon"
                     }
-                    className="ml-auto "
+                    className="ml-auto h-4"
                   >
                     {collectionItem.public ? "Public" : "Private"}
                   </Badge>
@@ -128,25 +144,7 @@ export default function MyCollectionItem() {
                   ) : null}
                 </div>
 
-                <div className="flex justify-end">
-                  {isOwner && (
-                    <div className="flex gap-2">
-                      <Button asChild size="sm" variant="theme_autobot">
-                        <Link
-                          to={`/collection/my-collection/${collectionItem._id}/edit`}
-                        >
-                          <Pencil className="w-4 h-4 mr-1" /> Edit
-                        </Link>
-                      </Button>
-                      <Button size="sm" asChild>
-                        <DeleteCollectionItemButton
-                          collectionItem={collectionItem}
-                          location="/collection/my-collection"
-                        />
-                      </Button>
-                    </div>
-                  )}
-                </div>
+                {/* actions moved to top header */}
               </CardContent>
             </Card>
 
@@ -161,6 +159,15 @@ export default function MyCollectionItem() {
                     {new Date(
                       collectionItem.acquisition_date
                     ).toLocaleDateString()}
+                  </div>
+                )}
+                {typeof (collectionItem as any).price === "number" && (
+                  <div>
+                    <strong>Price:</strong>{" "}
+                    {new Intl.NumberFormat(undefined, {
+                      style: "currency",
+                      currency: (collectionItem as any).currency || "USD",
+                    }).format((collectionItem as any).price)}
                   </div>
                 )}
                 {collectionItem.acquisition_location && (
@@ -342,6 +349,7 @@ export default function MyCollectionItem() {
                           <div className="flex gap-2 justify-end mt-1">
                             <Button
                               size="sm"
+                              variant="theme_autobot"
                               onClick={async () => {
                                 try {
                                   if (!editingId) return;
@@ -374,7 +382,7 @@ export default function MyCollectionItem() {
                             </Button>
                             <Button
                               size="sm"
-                              variant="ghost"
+                              variant="theme_decepticon"
                               onClick={() => {
                                 setEditingId(null);
                                 setEditingContent("");

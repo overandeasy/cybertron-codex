@@ -10,9 +10,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { Textarea } from "~/components/ui/textarea";
-import { Badge } from "~/components/ui/badge";
 import { X, Upload, Trash2 } from "lucide-react";
 import type { UserCollection } from "~/lib/zod";
+import { userCollectionFormSchema, imageFileSchema } from "~/lib/zod";
+import { ALL_CURRENCIES } from "~/lib/utils";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm, useFieldArray } from "react-hook-form";
 import { editCollection } from "~/api/collection";
 import type { Route } from "./+types/editMyCollectionItem";
 import { themeToast } from "~/components/ThemeToast";
@@ -23,8 +27,6 @@ export function meta({}: Route.MetaArgs) {
     { name: "description", content: "Edit your collection item details" },
   ];
 }
-
-export const handle = { breadcrumb: "Edit" };
 
 // export async function clientLoader({ params }: Route.ClientLoaderArgs) {
 //   const token = localStorage.getItem("token");
@@ -54,25 +56,55 @@ export default function EditMyCollectionItem() {
   const userProfile = useRouteLoaderData("root")?.userProfile;
   // console.log("User profile in EditMyCollectionItem:", userProfile);
 
-  // Form state
-  const [formData, setFormData] = useState({
-    character_name: "",
-    character_primary_faction: "",
-    character_description: "",
-    toy_line: "",
-    toy_class: "",
-    collection_notes: "",
-    acquisition_date: "",
-    acquisition_location: "",
-    public: true,
+  // Form state using react-hook-form + zod
+  const clientUserCollectionSchema = userCollectionFormSchema.omit({
+    user_profile_id: true,
+    createdAt: true,
+    updatedAt: true,
+  });
+  type FormValues = z.infer<typeof clientUserCollectionSchema>;
+  const {
+    register,
+    control,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<FormValues>({
+    resolver: zodResolver(clientUserCollectionSchema) as any,
+    defaultValues: {
+      character_name: "",
+      character_primary_faction: undefined,
+      character_description: "",
+      toy_line: "",
+      toy_class: "",
+      collection_notes: "",
+      acquisition_date: undefined,
+      acquisition_location: "",
+      public: true,
+      alt_character_name: [],
+    } as Partial<FormValues>,
   });
 
-  const [altNames, setAltNames] = useState<{ name: string }[]>([]);
+  const {
+    fields: altNames,
+    append,
+    remove,
+  } = useFieldArray({
+    control,
+    name: "alt_character_name" as any,
+  });
+
   const [mediaImages, setMediaImages] = useState<string[]>([]);
   const [toyImages, setToyImages] = useState<string[]>([]);
   const [newMediaFiles, setNewMediaFiles] = useState<File[]>([]);
   const [newToyFiles, setNewToyFiles] = useState<File[]>([]);
   const [imagesToDelete, setImagesToDelete] = useState<string[]>([]);
+  const [mediaErrors, setMediaErrors] = useState<string[]>([]);
+  const [toyErrors, setToyErrors] = useState<string[]>([]);
+  const [mediaProgress, setMediaProgress] = useState<Record<number, number>>(
+    {}
+  );
+  const [toyProgress, setToyProgress] = useState<Record<number, number>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Auth check
@@ -102,10 +134,10 @@ export default function EditMyCollectionItem() {
   // Initialize form data
   useEffect(() => {
     if (collectionItem) {
-      setFormData({
+      reset({
         character_name: collectionItem.character_name || "",
         character_primary_faction:
-          collectionItem.character_primary_faction || "",
+          collectionItem.character_primary_faction || undefined,
         character_description: collectionItem.character_description || "",
         toy_line: collectionItem.toy_line || "",
         toy_class: collectionItem.toy_class || "",
@@ -114,51 +146,71 @@ export default function EditMyCollectionItem() {
           ? new Date(collectionItem.acquisition_date)
               .toISOString()
               .split("T")[0]
-          : "",
+          : undefined,
         acquisition_location: collectionItem.acquisition_location || "",
         public: collectionItem.public ?? true,
-      });
+        price: (collectionItem as any).price ?? undefined,
+        currency: (collectionItem as any).currency ?? "USD",
+        alt_character_name: collectionItem.alt_character_name || [],
+      } as Partial<FormValues>);
 
-      setAltNames(collectionItem.alt_character_name || []);
       setMediaImages(collectionItem.media_images || []);
       setToyImages(collectionItem.toy_images || []);
+      // populate field array if alt names exist
+      // useFieldArray will reflect reset values
     }
-  }, [collectionItem]);
+  }, [collectionItem, reset]);
 
-  const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => {
-    const { name, value, type } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]:
-        type === "checkbox" ? (e.target as HTMLInputElement).checked : value,
-    }));
-  };
-
-  const handleAddAltName = () => {
-    setAltNames((prev) => [...prev, { name: "" }]);
-  };
-
-  const handleAltNameChange = (index: number, value: string) => {
-    setAltNames((prev) =>
-      prev.map((item, i) => (i === index ? { name: value } : item))
-    );
-  };
-
-  const handleRemoveAltName = (index: number) => {
-    setAltNames((prev) => prev.filter((_, i) => i !== index));
-  };
+  // field array helpers
+  const handleAddAltName = () => append({ name: "" } as any);
 
   const handleFileChange = (
     e: React.ChangeEvent<HTMLInputElement>,
     type: "media" | "toy"
   ) => {
     const files = Array.from(e.target.files || []);
+    const validateFiles = (incoming: File[]) => {
+      const accepted: File[] = [];
+      const errors: string[] = [];
+      incoming.forEach((file) => {
+        try {
+          imageFileSchema.parse(file as File);
+          accepted.push(file);
+        } catch (err: any) {
+          errors.push(
+            `${file.name}: ${err?.errors?.[0]?.message || err.message}`
+          );
+        }
+      });
+      return { accepted, errors };
+    };
+
     if (type === "media") {
-      setNewMediaFiles((prev) => [...prev, ...files]);
+      const { accepted, errors } = validateFiles(files);
+      setMediaErrors(errors);
+      setNewMediaFiles((prev) => {
+        const next = [...prev, ...accepted].slice(0, 3);
+        const baseIndex = prev.length;
+        const newProgress = { ...mediaProgress };
+        for (let i = 0; i < Math.min(accepted.length, 3 - prev.length); i++) {
+          newProgress[baseIndex + i] = 0;
+        }
+        setMediaProgress(newProgress);
+        return next;
+      });
     } else {
-      setNewToyFiles((prev) => [...prev, ...files]);
+      const { accepted, errors } = validateFiles(files);
+      setToyErrors(errors);
+      setNewToyFiles((prev) => {
+        const next = [...prev, ...accepted].slice(0, 3);
+        const baseIndex = prev.length;
+        const newProgress = { ...toyProgress };
+        for (let i = 0; i < Math.min(accepted.length, 3 - prev.length); i++) {
+          newProgress[baseIndex + i] = 0;
+        }
+        setToyProgress(newProgress);
+        return next;
+      });
     }
   };
 
@@ -173,31 +225,80 @@ export default function EditMyCollectionItem() {
       setToyImages((prev) => prev.filter((img) => img !== imageUrl));
     }
   };
-
   const handleRemoveNewFile = (index: number, type: "media" | "toy") => {
     if (type === "media") {
       setNewMediaFiles((prev) => prev.filter((_, i) => i !== index));
+      setMediaErrors((prev) => prev.filter((_, i) => i !== index));
+      setMediaProgress((prev) => {
+        const copy = { ...prev };
+        delete copy[index];
+        return copy;
+      });
     } else {
       setNewToyFiles((prev) => prev.filter((_, i) => i !== index));
+      setToyErrors((prev) => prev.filter((_, i) => i !== index));
+      setToyProgress((prev) => {
+        const copy = { ...prev };
+        delete copy[index];
+        return copy;
+      });
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const onSubmit = async (values: FormValues) => {
     setIsSubmitting(true);
-
     try {
+      if (newMediaFiles.length > 3 || newToyFiles.length > 3) {
+        throw new Error(
+          "Too many files selected. Maximum 3 media and 3 toy images allowed."
+        );
+      }
+
+      // simulate per-file progress
+      Object.keys(mediaProgress).forEach(
+        (k) => (mediaProgress[Number(k)] = 10)
+      );
+      setMediaProgress({ ...mediaProgress });
+
       const formDataToSubmit = new FormData();
 
-      // Add text fields
-      Object.entries(formData).forEach(([key, value]) => {
-        if (value !== null && value !== undefined) {
-          formDataToSubmit.append(key, value.toString());
+      const keysToAppend: Array<keyof FormValues> = [
+        "character_name",
+        "character_primary_faction",
+        "character_description",
+        "toy_line",
+        "toy_class",
+        "collection_notes",
+        "acquisition_location",
+      ];
+
+      keysToAppend.forEach((k) => {
+        const v = values[k];
+        if (v !== undefined && v !== null) {
+          formDataToSubmit.append(k as string, String(v));
         }
       });
 
-      // Add arrays as JSON strings
-      formDataToSubmit.append("alt_character_name", JSON.stringify(altNames));
+      if (values.acquisition_date) {
+        const d = values.acquisition_date as unknown as Date;
+        formDataToSubmit.append("acquisition_date", d.toISOString());
+      }
+
+      formDataToSubmit.append("public", String(values.public ?? true));
+
+      formDataToSubmit.append(
+        "alt_character_name",
+        JSON.stringify(values.alt_character_name || [])
+      );
+      // price and currency
+      if ((values as any).price !== undefined) {
+        formDataToSubmit.append("price", String((values as any).price));
+      }
+      if ((values as any).currency) {
+        formDataToSubmit.append("currency", String((values as any).currency));
+      }
+
+      // current images arrays
       formDataToSubmit.append("media_images", JSON.stringify(mediaImages));
       formDataToSubmit.append("toy_images", JSON.stringify(toyImages));
 
@@ -208,38 +309,56 @@ export default function EditMyCollectionItem() {
         );
       }
 
-      // Add new files
-      newMediaFiles.forEach((file) => {
-        formDataToSubmit.append("media_images", file);
-      });
+      newMediaFiles.forEach((file) =>
+        formDataToSubmit.append("media_images", file)
+      );
+      newToyFiles.forEach((file) =>
+        formDataToSubmit.append("toy_images", file)
+      );
 
-      newToyFiles.forEach((file) => {
-        formDataToSubmit.append("toy_images", file);
-      });
-
-      console.log("Submitting form data: ", formDataToSubmit);
-
-      // TODO: Implement updateCollection API call
       const result = await editCollection(params._id!, formDataToSubmit);
 
-      if (result.type === "success") {
+      // mark progress complete
+      setMediaProgress((prev) =>
+        Object.keys(prev).reduce(
+          (acc, k) => ({ ...acc, [Number(k)]: 100 }),
+          {} as Record<number, number>
+        )
+      );
+      setToyProgress((prev) =>
+        Object.keys(prev).reduce(
+          (acc, k) => ({ ...acc, [Number(k)]: 100 }),
+          {} as Record<number, number>
+        )
+      );
+
+      if ((result as any).type === "success") {
         themeToast(
           "success",
           "Collection updated successfully",
           `/collection/my-collection/${params._id}`,
           navigate
         );
-        console.log("Collection updated successfully");
       } else {
         themeToast("fail", "Failed to update collection");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to update collection:", error);
-      // Show error message to user
-      themeToast(
-        "fail",
-        error instanceof Error ? error.message : "Failed to update collection"
-      );
+      if (error && typeof error === "object" && "fields" in error) {
+        const fields = (error as any).fields as Record<string, string>;
+        Object.entries(fields || {}).forEach(([k, v]) => {
+          try {
+            (control as any)._form.setError(k, { type: "server", message: v });
+          } catch (e) {
+            themeToast("fail", v);
+          }
+        });
+      } else {
+        themeToast(
+          "fail",
+          error instanceof Error ? error.message : "Failed to update collection"
+        );
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -249,12 +368,12 @@ export default function EditMyCollectionItem() {
     <div className="max-w-4xl mx-auto p-6 space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">Edit Collection Item</h1>
-        <Button variant="outline" onClick={() => navigate(-1)}>
+        <Button variant="theme_decepticon" onClick={() => navigate(-1)}>
           Cancel
         </Button>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit(onSubmit as any)} className="space-y-6">
         <Card>
           <CardHeader>
             <CardTitle>Basic Information</CardTitle>
@@ -263,13 +382,12 @@ export default function EditMyCollectionItem() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="character_name">Character Name *</Label>
-                <Input
-                  id="character_name"
-                  name="character_name"
-                  value={formData.character_name}
-                  onChange={handleInputChange}
-                  required
-                />
+                <Input id="character_name" {...register("character_name")} />
+                {errors.character_name && (
+                  <p className="text-sm text-red-600">
+                    {String(errors.character_name?.message)}
+                  </p>
+                )}
               </div>
               <div>
                 <Label htmlFor="character_primary_faction">
@@ -277,11 +395,13 @@ export default function EditMyCollectionItem() {
                 </Label>
                 <Input
                   id="character_primary_faction"
-                  name="character_primary_faction"
-                  value={formData.character_primary_faction}
-                  onChange={handleInputChange}
-                  required
+                  {...register("character_primary_faction")}
                 />
+                {errors.character_primary_faction && (
+                  <p className="text-sm text-red-600">
+                    {String(errors.character_primary_faction?.message)}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -289,31 +409,24 @@ export default function EditMyCollectionItem() {
               <Label htmlFor="character_description">Description</Label>
               <Textarea
                 id="character_description"
-                name="character_description"
-                value={formData.character_description}
-                onChange={handleInputChange}
+                {...register("character_description")}
                 rows={3}
               />
+              {errors.character_description && (
+                <p className="text-sm text-red-600">
+                  {String(errors.character_description?.message)}
+                </p>
+              )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="toy_line">Toy Line</Label>
-                <Input
-                  id="toy_line"
-                  name="toy_line"
-                  value={formData.toy_line}
-                  onChange={handleInputChange}
-                />
+                <Input id="toy_line" {...register("toy_line")} />
               </div>
               <div>
                 <Label htmlFor="toy_class">Toy Class</Label>
-                <Input
-                  id="toy_class"
-                  name="toy_class"
-                  value={formData.toy_class}
-                  onChange={handleInputChange}
-                />
+                <Input id="toy_class" {...register("toy_class")} />
               </div>
             </div>
           </CardContent>
@@ -325,17 +438,16 @@ export default function EditMyCollectionItem() {
           </CardHeader>
           <CardContent className="space-y-4">
             {altNames.map((altName, index) => (
-              <div key={index} className="flex gap-2">
+              <div key={altName.id} className="flex gap-2">
                 <Input
-                  value={altName.name}
-                  onChange={(e) => handleAltNameChange(index, e.target.value)}
+                  {...register(`alt_character_name.${index}.name` as const)}
                   placeholder="Alternative character name"
                 />
                 <Button
                   type="button"
                   variant="outline"
                   size="icon"
-                  onClick={() => handleRemoveAltName(index)}
+                  onClick={() => remove(index)}
                 >
                   <X className="w-4 h-4" />
                 </Button>
@@ -390,8 +502,17 @@ export default function EditMyCollectionItem() {
                       className="absolute top-1 right-1 w-6 h-6"
                       onClick={() => handleRemoveNewFile(index, "media")}
                     >
-                      <X className="w-3 h-3" />
+                      {" "}
+                      <X className="w-3 h-3" />{" "}
                     </Button>
+                    {mediaProgress[index] !== undefined && (
+                      <div className="absolute left-1 bottom-1 right-1 bg-black/25 rounded-md h-2">
+                        <div
+                          className="bg-yellow-400 h-2 rounded-md"
+                          style={{ width: `${mediaProgress[index]}%` }}
+                        />
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -405,7 +526,15 @@ export default function EditMyCollectionItem() {
                   id="media-upload"
                 />
                 <Label htmlFor="media-upload" className="cursor-pointer">
-                  <Button type="button" variant="outline" asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    asChild
+                    disabled={
+                      newMediaFiles.length >= 3 ||
+                      mediaImages.length + newMediaFiles.length >= 3
+                    }
+                  >
                     <span>
                       <Upload className="w-4 h-4 mr-2" />
                       Add Media Images
@@ -413,6 +542,13 @@ export default function EditMyCollectionItem() {
                   </Button>
                 </Label>
               </div>
+              {mediaErrors.length > 0 && (
+                <div className="mt-2 text-sm text-red-600">
+                  {mediaErrors.map((err, i) => (
+                    <div key={i}>{err}</div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Toy Images */}
@@ -451,8 +587,17 @@ export default function EditMyCollectionItem() {
                       className="absolute top-1 right-1 w-6 h-6"
                       onClick={() => handleRemoveNewFile(index, "toy")}
                     >
-                      <X className="w-3 h-3" />
+                      {" "}
+                      <X className="w-3 h-3" />{" "}
                     </Button>
+                    {toyProgress[index] !== undefined && (
+                      <div className="absolute left-1 bottom-1 right-1 bg-black/25 rounded-md h-2">
+                        <div
+                          className="bg-yellow-400 h-2 rounded-md"
+                          style={{ width: `${toyProgress[index]}%` }}
+                        />
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -466,7 +611,15 @@ export default function EditMyCollectionItem() {
                   id="toy-upload"
                 />
                 <Label htmlFor="toy-upload" className="cursor-pointer">
-                  <Button type="button" variant="outline" asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    asChild
+                    disabled={
+                      newToyFiles.length >= 3 ||
+                      toyImages.length + newToyFiles.length >= 3
+                    }
+                  >
                     <span>
                       <Upload className="w-4 h-4 mr-2" />
                       Add Toy Images
@@ -474,6 +627,13 @@ export default function EditMyCollectionItem() {
                   </Button>
                 </Label>
               </div>
+              {toyErrors.length > 0 && (
+                <div className="mt-2 text-sm text-red-600">
+                  {toyErrors.map((err, i) => (
+                    <div key={i}>{err}</div>
+                  ))}
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -487,11 +647,14 @@ export default function EditMyCollectionItem() {
               <Label htmlFor="collection_notes">Collection Notes</Label>
               <Textarea
                 id="collection_notes"
-                name="collection_notes"
-                value={formData.collection_notes}
-                onChange={handleInputChange}
+                {...register("collection_notes")}
                 rows={3}
               />
+              {errors.collection_notes && (
+                <p className="text-sm text-red-600">
+                  {String(errors.collection_notes?.message)}
+                </p>
+              )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -500,10 +663,13 @@ export default function EditMyCollectionItem() {
                 <Input
                   type="date"
                   id="acquisition_date"
-                  name="acquisition_date"
-                  value={formData.acquisition_date}
-                  onChange={handleInputChange}
+                  {...register("acquisition_date" as any)}
                 />
+                {errors.acquisition_date && (
+                  <p className="text-sm text-red-600">
+                    {String(errors.acquisition_date?.message)}
+                  </p>
+                )}
               </div>
               <div>
                 <Label htmlFor="acquisition_location">
@@ -511,10 +677,81 @@ export default function EditMyCollectionItem() {
                 </Label>
                 <Input
                   id="acquisition_location"
-                  name="acquisition_location"
-                  value={formData.acquisition_location}
-                  onChange={handleInputChange}
+                  {...register("acquisition_location")}
                 />
+                {errors.acquisition_location && (
+                  <p className="text-sm text-red-600">
+                    {String(errors.acquisition_location?.message)}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="currency">Currency</Label>
+                {(() => {
+                  const top = ["AUD", "CNY", "EUR", "GBP", "HKD", "USD"];
+                  const unique = Array.from(
+                    new Set(
+                      (ALL_CURRENCIES as string[]).map((c: string) =>
+                        c.toUpperCase()
+                      )
+                    )
+                  );
+                  const rest = (unique as string[])
+                    .filter((c: string) => !top.includes(c))
+                    .sort();
+                  const finalList: string[] = [...top, ...rest];
+                  return (
+                    <select
+                      id="currency"
+                      {...register("currency")}
+                      className="w-full border rounded px-2 py-1"
+                    >
+                      {finalList.map((c) => {
+                        let label = c;
+                        try {
+                          const parts = new Intl.NumberFormat(undefined, {
+                            style: "currency",
+                            currency: c,
+                          }).formatToParts(1);
+                          const currencyPart = parts.find(
+                            (p) => p.type === "currency"
+                          )?.value;
+                          label = currencyPart ? `${c} (${currencyPart})` : c;
+                        } catch (e) {
+                          label = c;
+                        }
+                        return (
+                          <option key={c} value={c}>
+                            {label}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  );
+                })()}
+                {errors.currency && (
+                  <p className="text-sm text-red-600">
+                    {String(errors.currency?.message)}
+                  </p>
+                )}
+              </div>
+              <div>
+                <Label htmlFor="price">Price</Label>
+                <Input
+                  id="price"
+                  type="number"
+                  step="0.01"
+                  {...register("price")}
+                  placeholder="e.g., 19.99"
+                />
+                {errors.price && (
+                  <p className="text-sm text-red-600">
+                    {String(errors.price?.message)}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -522,9 +759,7 @@ export default function EditMyCollectionItem() {
               <input
                 type="checkbox"
                 id="public"
-                name="public"
-                checked={formData.public}
-                onChange={handleInputChange}
+                {...register("public" as any)}
                 className="rounded"
               />
               <Label htmlFor="public">Make this collection item public</Label>
@@ -533,10 +768,14 @@ export default function EditMyCollectionItem() {
         </Card>
 
         <div className="flex justify-end gap-4">
-          <Button type="button" variant="outline" onClick={() => navigate(-1)}>
+          <Button
+            type="button"
+            variant="theme_decepticon"
+            onClick={() => navigate(-1)}
+          >
             Cancel
           </Button>
-          <Button type="submit" disabled={isSubmitting}>
+          <Button type="submit" disabled={isSubmitting} variant="theme_autobot">
             {isSubmitting ? "Updating..." : "Update"}
           </Button>
         </div>

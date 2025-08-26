@@ -4,6 +4,9 @@ import { Avatar } from "./ui/avatar";
 import { cn } from "~/lib/utils";
 import { Button } from "./ui/button";
 import { Link } from "react-router";
+import { setPrimaryProfileImage } from "~/api/user";
+import { themeToast } from "~/components/ThemeToast";
+import { socialKeyLabel } from "~/lib/social";
 
 type Props = {
   userProfile: UserProfile;
@@ -11,10 +14,11 @@ type Props = {
 };
 export function UserProfileDisplay({ userProfile, className }: Props) {
   const images = userProfile.images ?? [];
-  const initialPreview = useMemo(
-    () => (images.length > 0 ? images[images.length - 1] : undefined),
-    [images]
-  );
+  const initialPreview = useMemo(() => {
+    if (userProfile.primary_profile_image)
+      return userProfile.primary_profile_image;
+    return images.length > 0 ? images[images.length - 1] : undefined;
+  }, [images, userProfile.primary_profile_image]);
   const [preview, setPreview] = useState<string | undefined>(initialPreview);
 
   const fullName = [userProfile.first_name, userProfile.last_name]
@@ -50,18 +54,43 @@ export function UserProfileDisplay({ userProfile, className }: Props) {
               <button
                 key={src}
                 type="button"
-                onClick={() => setPreview(src)}
+                onClick={async () => {
+                  // Optimistic UI: set preview immediately
+                  setPreview(src);
+                  try {
+                    const updatedProfile = await setPrimaryProfileImage(src);
+                    themeToast("success", "Primary profile image updated");
+                    // Server-side persisted. We intentionally do not update app-level
+                    // profile here to avoid coupling UI propagation to this action.
+                  } catch (err: any) {
+                    // revert if error
+                    setPreview(
+                      userProfile.primary_profile_image ||
+                        images[images.length - 1] ||
+                        undefined
+                    );
+                    console.error("Failed to set primary profile image", err);
+                    const msg =
+                      err?.message || "Failed to update primary image";
+                    themeToast("fail", msg);
+                  }
+                }}
                 className={cn(
                   "relative aspect-square overflow-hidden rounded-md ring-1 ring-border",
                   preview === src && "ring-2 ring-primary"
                 )}
-                title="View"
+                title="Set as primary / View"
               >
                 <img
                   src={src}
                   alt="Thumbnail"
                   className="h-full w-full object-cover"
                 />
+                {userProfile.primary_profile_image === src && (
+                  <span className="absolute top-1 left-1 bg-primary text-primary-foreground text-xs px-1 rounded">
+                    Primary
+                  </span>
+                )}
               </button>
             ))}
           </div>
@@ -123,7 +152,7 @@ export function UserProfileDisplay({ userProfile, className }: Props) {
               <ul className="flex space-x-4 flex-wrap">
                 {userProfile.social_links
                   .slice()
-                  .sort((a, b) => a.key.localeCompare(b.key))
+                  .sort((a, b) => String(a.key).localeCompare(String(b.key)))
                   .map((s) =>
                     s.value ? (
                       <li key={`${s.key}-${s.value}`}>
@@ -133,7 +162,7 @@ export function UserProfileDisplay({ userProfile, className }: Props) {
                           rel="noreferrer"
                           className="text-primary underline underline-offset-4 hover:text-primary/80"
                         >
-                          {s.key}
+                          {socialKeyLabel(s.key)}
                         </a>
                       </li>
                     ) : null

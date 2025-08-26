@@ -5,8 +5,6 @@ import type { UserCollection } from "~/lib/zod";
 import { getMyCollection } from "~/api/collection";
 import type { Route } from "./+types/layout";
 
-export const handle = { breadcrumb: "Collection" };
-
 export async function clientLoader() {
   const token = localStorage.getItem("token");
   if (!token) {

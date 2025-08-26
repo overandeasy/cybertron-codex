@@ -1,3 +1,5 @@
+"use client";
+
 import * as React from "react";
 import { LibraryBigIcon, Star, User } from "lucide-react";
 
@@ -13,6 +15,7 @@ import {
   SidebarRail,
 } from "~/components/ui/sidebar";
 import type { UserProfile } from "~/lib/zod";
+// AppSidebar expects a userProfile prop supplied by the layout loader
 import Logo from "~/components/Logo";
 import { Link } from "react-router";
 
@@ -86,7 +89,7 @@ export function AppSidebar({
             name: userProfile?.first_name || "Guest",
             email: userProfile?.user_id.email || "No email",
             avatar:
-              userProfile?.images?.[userProfile.images.length - 1] ||
+              userProfile?.primary_profile_image ||
               "/images/defaultUser/energon-glyphs.png",
           }}
         />

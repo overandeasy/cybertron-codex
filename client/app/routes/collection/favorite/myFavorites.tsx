@@ -1,22 +1,29 @@
-import { useEffect, useState } from "react";
-import { getMyFavorites, removeFavorite } from "~/api/collection";
+import { useState } from "react";
+import { useRouteLoaderData } from "react-router";
+import { removeFavorite } from "~/api/collection";
 import CollectionCard from "~/components/CollectionCard/CollectionCard";
-import type { UserCollection } from "~/lib/zod";
+import type { UserCollection, UserProfile } from "~/lib/zod";
+
+export interface UserFavoriteItem {
+  _id: string;
+  createdAt: Date;
+  updatedAt: Date;
+  user_profile_id: string;
+  collection_item_id: Omit<UserCollection, "user_profile_id"> & {
+    user_profile_id: {
+      _id: string;
+      user_id: string;
+      first_name: string;
+      last_name: string;
+    };
+  } & { createdAt?: Date; updatedAt?: Date };
+}
 
 function MyFavorites() {
-  const [favorites, setFavorites] = useState<any[]>([]);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const data = await getMyFavorites();
-        console.log("MyFavorites fetched:", data);
-        setFavorites(data || []);
-      } catch (err) {
-        console.error(err);
-      }
-    })();
-  }, []);
+  const [favorites, setFavorites] = useState<UserFavoriteItem[]>(
+    (useRouteLoaderData("routes/collection/favorite/layout")
+      .userFavorites as UserFavoriteItem[]) || []
+  );
 
   const handleUnfavorite = async (removedCollectionId: string) => {
     // optimistic removal

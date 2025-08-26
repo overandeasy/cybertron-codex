@@ -1,6 +1,7 @@
 
 
 import * as z from 'zod/v4'
+import { ALL_CURRENCIES } from '~/lib/utils'
 
 export const signUpFormSchema = z.object({
 
@@ -66,7 +67,8 @@ const COUNTRY_LIST = [
 ] as const;
 
 export const SOCIAL_KEYS = [
-    'Bilibili', 'Discord', 'Douyin', 'Facebook', 'Flickr', 'GitLab', 'Github', 'Instagram', 'LinkedIn', 'Medium', 'Pinterest', 'QQ', 'Quora', 'Reddit', 'Rednote', 'Signal', 'Snapchat', 'Stack Overflow', 'Telegram', 'Threads', 'TikTok', 'Tumblr', 'Twitch', 'Vimeo', 'WeChat', 'Weibo', 'Website', 'WhatsApp', 'X', 'Youtube', 'Other'
+    'x', 'instagram', 'youtube', 'twitch', 'tiktok', 'discord',
+    'github', 'linkedin', 'wechat', 'weibo', 'rednote', 'douyin', 'website'
 ] as const;
 
 const SocialLinkSchema = z.object({
@@ -129,7 +131,7 @@ export const userProfileFormSchema = z.object({
 export const userCollectionFormSchema = z.object({
     // _id: z.string(), // ObjectId as string
     character_name: z.string(),
-    character_primary_faction: z.string(),
+    character_primary_faction: z.enum(['Autobot', 'Decepticon'], { message: "Primary faction must be either Autobot or Decepticon" }),
     character_description: z.string().optional(),
     toy_line: z.string().optional(),
     toy_class: z.string().optional(),
@@ -137,6 +139,15 @@ export const userCollectionFormSchema = z.object({
     toy_images: z.array(z.string()).optional(),
     collection_notes: z.string().optional(),
     acquisition_date: z.coerce.date().optional(), // coerce to handle string inputs
+    price: z.coerce.number().min(0).optional(),
+    currency: z.string().default('USD').refine((val) => {
+        try {
+            const list = ALL_CURRENCIES.map(c => String(c).toUpperCase());
+            return list.includes(String(val).toUpperCase());
+        } catch (e) {
+            return false;
+        }
+    }, { message: 'Invalid currency code' }),
     user_profile_id: z.string(), // ObjectId as string
     acquisition_location: z.string().optional(),
     alt_character_name: z
@@ -161,6 +172,7 @@ export type UserProfile = Omit<z.infer<typeof userProfileFormSchema>, 'newImage'
     };
 
     images: string[];
+    primary_profile_image?: string | null;
     createdAt: Date;
     updatedAt: Date;
 }

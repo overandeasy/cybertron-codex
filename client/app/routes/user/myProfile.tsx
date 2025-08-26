@@ -8,11 +8,8 @@ export function meta({}: Route.MetaArgs) {
     { name: "description", content: "View and edit your profile information" },
   ];
 }
-export const handle = { breadcrumb: "Profile" };
 export default function MyProfile() {
-  const loaderData = useRouteLoaderData("root") as {
-    userProfile?: any;
-  };
+  const loaderData = useRouteLoaderData("root") as { userProfile?: any };
   const userProfile = loaderData?.userProfile;
   if (localStorage.getItem("token") === null) {
     console.warn("No auth token found in localStorage.");

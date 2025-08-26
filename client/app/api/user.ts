@@ -58,3 +58,28 @@ export const updateUserProfile = async (data: FormData) => {
 
 
 };
+
+export const setPrimaryProfileImage = async (imageUrl: string) => {
+    try {
+        const response = await fetch(`${baseUrl}/user/my-profile/primary-image`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${localStorage.getItem("token")}`,
+            },
+            body: JSON.stringify({ imageUrl }),
+        });
+        if (!response.ok) {
+            const errorData = await response.json();
+            console.error('Setting primary profile image failed:', errorData);
+            throw handleApiError(errorData);
+        }
+        const resJson = await response.json();
+        return resJson.data;
+    } catch (error: any) {
+        if (isApiError(error)) {
+            throw error;
+        }
+        throw error;
+    }
+};

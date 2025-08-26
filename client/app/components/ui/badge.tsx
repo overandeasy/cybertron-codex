@@ -12,9 +12,9 @@ const badgeVariants = cva(
         default:
           "border-transparent bg-primary text-primary-foreground [a&]:hover:bg-primary/90",
         theme_autobot:
-          "border-transparent bg-autobot-red text-primary-foreground [a&]:hover:bg-autobot-red/90",
+          "border-transparent dark:text-primary bg-autobot-red text-primary-foreground [a&]:hover:bg-autobot-red/90",
         theme_decepticon:
-          "border-transparent bg-decepticon-purple text-primary-foreground [a&]:hover:bg-decepticon-purple/90",
+          "border-transparent bg-decepticon-purple dark:text-primary text-primary-foreground [a&]:hover:bg-decepticon-purple/90",
         secondary:
           "border-transparent bg-secondary text-secondary-foreground [a&]:hover:bg-secondary/90",
         destructive:

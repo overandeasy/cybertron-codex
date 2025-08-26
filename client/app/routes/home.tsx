@@ -31,8 +31,7 @@ export async function clientLoader() {
   try {
     const allPublicCollections = await getAllPublicCollections();
     console.log(
-      "All collections fetched successfully on the client: ",
-      allPublicCollections
+      `All Collections fetched on the client: ${allPublicCollections?.length || 0} items.`
     );
     return { allPublicCollections };
   } catch (error) {
@@ -46,10 +45,8 @@ export async function clientLoader() {
 
 function Home({ loaderData }: Route.ComponentProps) {
   const isLoggedIn = localStorage.getItem("token") !== null;
-
   const allPublicCollections =
-    (loaderData.allPublicCollections as unknown as UserCollection[]) ||
-    [] ||
+    ((loaderData?.allPublicCollections as unknown as UserCollection[]) || []) ??
     null;
   if (!isLoggedIn) {
     console.warn("User not signed in.");

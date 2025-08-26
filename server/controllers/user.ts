@@ -68,7 +68,7 @@ export const signUp = async (req: Request, res: Response) => {
 
 export const loginUser = async (req: Request, res: Response) => {
     try {
-        console.log("Signing in user with data:", req.body);
+        // console.log("Signing in user with data:", req.body);
         if (!req.body) {
             return handleError(res, {
                 type: 'error',
@@ -145,7 +145,7 @@ export const loginUser = async (req: Request, res: Response) => {
 
 export const getAllUserProfiles = async (req: Request, res: Response) => {
     try {
-        console.log("Requested user: ", req.user);
+        // console.log("Requested user: ", req.user);
         console.log("Requested user ID: ", req.user?._id.toString());
         if (!req.user) {
             return res.status(401).json({ error: "Unauthorized access" });
@@ -172,7 +172,7 @@ export const getAllUserProfiles = async (req: Request, res: Response) => {
 
 export const getActiveUserProfile = async (req: Request, res: Response) => {
     try {
-        console.log("Requested user: ", req.user);
+        // console.log("Requested user: ", req.user);
         console.log("Requested user ID: ", req.user?._id.toString());
         if (!req.user) {
             return handleError(res, {
@@ -321,7 +321,17 @@ export const updateUserProfile = async (req: Request, res: Response) => {
             dataToUpdate.$set.languages = languages;
         }
         if (social_links && Array.isArray(social_links)) {
-            dataToUpdate.$set.social_links = social_links;
+            // Normalize social link keys to lowercase to match schema enum values and avoid validation errors
+            try {
+                const normalized = social_links.map((s: any) => ({
+                    key: String((s && s.key) || '').toLowerCase(),
+                    value: s && s.value
+                }));
+                dataToUpdate.$set.social_links = normalized;
+            } catch (e) {
+                // Fallback: set as-is if mapping fails
+                dataToUpdate.$set.social_links = social_links;
+            }
         }
         if (images && Array.isArray(images)) {
             dataToUpdate.$set.images = images;
@@ -370,5 +380,40 @@ export const updateUserProfile = async (req: Request, res: Response) => {
             message: "Failed to update user profile",
             data: error
         });
+    }
+}
+
+export const setPrimaryProfileImage = async (req: Request, res: Response) => {
+    try {
+        if (!req.user) {
+            return handleError(res, { type: 'error', status: 401, code: 'UNAUTHORIZED', message: 'Unauthorized access' });
+        }
+        const { imageUrl } = req.body;
+        if (!imageUrl || typeof imageUrl !== 'string') {
+            return handleError(res, { type: 'error', status: 400, code: 'BAD_REQUEST', message: 'imageUrl is required' });
+        }
+
+        // Verify the image belongs to the user's profile images
+        const userProfile = await UserProfileModel.findOne({ user_id: req.user._id });
+        if (!userProfile) {
+            return handleError(res, { type: 'error', status: 404, code: 'NOT_FOUND', message: 'User profile not found' });
+        }
+
+        const images: string[] = (userProfile.images || []).map(String);
+        if (!images.includes(imageUrl)) {
+            return handleError(res, { type: 'error', status: 400, code: 'INVALID_IMAGE', message: 'Provided image does not belong to the user' });
+        }
+
+        // Use an atomic update to avoid triggering full-document validation (some legacy fields may fail validation on save)
+        const updatedProfile = await UserProfileModel.findOneAndUpdate(
+            { user_id: req.user._id },
+            { $set: { primary_profile_image: imageUrl } },
+            { new: true }
+        );
+
+        return handleSuccess(res, { type: 'success', status: 200, code: 'PRIMARY_IMAGE_SET', message: 'Primary profile image updated', data: updatedProfile });
+    } catch (error) {
+        console.error('Error setting primary profile image:', error);
+        return handleError(res, { type: 'error', status: 500, code: 'INTERNAL_SERVER_ERROR', message: 'Failed to set primary profile image', data: error });
     }
 }

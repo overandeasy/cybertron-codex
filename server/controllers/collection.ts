@@ -5,6 +5,12 @@ import { uploadImage } from "../utils/cloudinaryOperations";
 import { removeImages } from "../utils/cloudinaryOperations";
 import CollectionCommentModel from "../db_models/collection_comment";
 import UserFavoriteModel from "../db_models/user_favorite";
+import { z } from "zod";
+
+// Allowed currency codes for validation
+const ALLOWED_CURRENCIES = [
+    'USD', 'EUR', 'CNY', 'GBP', 'AED', 'AFN', 'ALL', 'AMD', 'ANG', 'AOA', 'ARS', 'AUD', 'AWG', 'AZN', 'BAM', 'BBD', 'BDT', 'BGN', 'BHD', 'BIF', 'BMD', 'BND', 'BOB', 'BRL', 'BSD', 'BTN', 'BWP', 'BYN', 'BZD', 'CAD', 'CDF', 'CHF', 'CLP', 'COP', 'CRC', 'CUC', 'CUP', 'CVE', 'CZK', 'DJF', 'DKK', 'DOP', 'DZD', 'EGP', 'ERN', 'ETB', 'FJD', 'FKP', 'FOK', 'GEL', 'GGP', 'GHS', 'GIP', 'GMD', 'GNF', 'GTQ', 'GYD', 'HKD', 'HNL', 'HRK', 'HTG', 'HUF', 'IDR', 'ILS', 'IMP', 'INR', 'IQD', 'IRR', 'ISK', 'JMD', 'JOD', 'JPY', 'KES', 'KGS', 'KHR', 'KID', 'KMF', 'KRW', 'KWD', 'KYD', 'KZT', 'LAK', 'LBP', 'LKR', 'LRD', 'LSL', 'LYD', 'MAD', 'MDL', 'MGA', 'MKD', 'MMK', 'MNT', 'MOP', 'MRU', 'MUR', 'MVR', 'MWK', 'MXN', 'MYR', 'MZN', 'NAD', 'NGN', 'NIO', 'NOK', 'NPR', 'NZD', 'OMR', 'PAB', 'PEN', 'PGK', 'PHP', 'PKR', 'PLN', 'PYG', 'QAR', 'RON', 'RSD', 'RUB', 'RWF', 'SAR', 'SBD', 'SCR', 'SDG', 'SEK', 'SGD', 'SHP', 'SLL', 'SOS', 'SRD', 'SSP', 'STN', 'SYP', 'SZL', 'THB', 'TJS', 'TMT', 'TND', 'TOP', 'TRY', 'TTD', 'TVD', 'TWD', 'TZS', 'UAH', 'UGX', 'UYU', 'UZS', 'VES', 'VND', 'VUV', 'WST', 'XAF', 'XCD', 'XOF', 'XPF', 'YER', 'ZAR', 'ZMW', 'ZWL'
+];
 
 // This function is not being used. 
 // export const getAllCollections = async (req: Request, res: Response) => {
@@ -25,7 +31,6 @@ import UserFavoriteModel from "../db_models/user_favorite";
 // };
 
 
-
 export const getAllPublicCollections = async (req: Request, res: Response) => {
     try {
 
@@ -41,7 +46,7 @@ export const getAllPublicCollections = async (req: Request, res: Response) => {
         }
         const publicCollections = await UserCollectionModel.find({
             public: true
-        }).populate<{ user_profile_id: { user_id: string; first_name: string; last_name: string; } }>('user_profile_id', "user_id first_name last_name");
+        }).populate<{ user_profile_id: { user_id: string; first_name: string; last_name: string; } }>('user_profile_id', "user_id first_name last_name").sort({ createdAt: -1 });
 
         handleSuccess(res, {
             type: 'success',
@@ -79,7 +84,7 @@ export const getMyCollection = async (req: Request, res: Response) => {
         }
         const myCollection = await UserCollectionModel.find({
             user_profile_id: req.user.profile_id,
-        }).populate('user_profile_id', "user_id first_name last_name");
+        }).populate('user_profile_id', "user_id first_name last_name").sort({ createdAt: -1 });
         handleSuccess(res, {
             type: 'success',
             status: 200,
@@ -159,8 +164,71 @@ export const addUserCollection = async (req: Request, res: Response) => {
 
         const userId = req.user._id?.toString();
 
+        // Validate and parse incoming data using Zod
+        const collectionSchema = z.object({
+            character_name: z.string().min(1, { message: 'character_name is required' }),
+            character_primary_faction: z.enum(["Autobot", "Decepticon"]),
+            character_description: z.string().optional().nullable().default(""),
+            toy_line: z.string().optional().nullable().default(""),
+            toy_class: z.string().optional().nullable().default(""),
+            collection_notes: z.string().optional().nullable().default(""),
+            acquisition_date: z.preprocess((val: any) => {
+                if (!val) return undefined;
+                // Accept ISO date strings from the client
+                const d = new Date(String(val));
+                return isNaN(d.getTime()) ? undefined : d;
+            }, z.date().optional()),
+            acquisition_location: z.string().optional().nullable().default(""),
+            public: z.preprocess((val: any) => {
+                if (val === undefined) return true;
+                if (typeof val === 'string') return val === 'true' || val === '1';
+                return Boolean(val);
+            }, z.boolean()).default(true),
+            media_images: z.preprocess((val: any) => {
+                if (!val) return [];
+                if (typeof val === 'string') {
+                    try { return JSON.parse(val); } catch { return []; }
+                }
+                return val;
+            }, z.array(z.string()).optional().default([])),
+            toy_images: z.preprocess((val: any) => {
+                if (!val) return [];
+                if (typeof val === 'string') {
+                    try { return JSON.parse(val); } catch { return []; }
+                }
+                return val;
+            }, z.array(z.string()).optional().default([])),
+            alt_character_name: z.preprocess((val: any) => {
+                if (!val) return [];
+                if (typeof val === 'string') {
+                    try { return JSON.parse(val); } catch { return []; }
+                }
+                return val;
+            }, z.array(z.any()).optional().default([])),
+            price: z.preprocess((val: any) => {
+                if (val === undefined || val === null || val === '') return undefined;
+                const n = Number(val);
+                return isNaN(n) ? undefined : Math.round(n * 100) / 100;
+            }, z.number().min(0).optional()),
+            currency: z.preprocess((val: any) => {
+                if (!val) return 'USD';
+                try { return String(val).toUpperCase(); } catch { return 'USD'; }
+            }, z.string().default('USD').refine((c) => ALLOWED_CURRENCIES.includes(String(c).toUpperCase()), { message: 'Invalid currency code' })),
+        });
 
-        // Destructure all fields from the body according to userCollectionSchema
+        const parsed = collectionSchema.safeParse(req.body);
+        if (!parsed.success) {
+            console.warn('Validation failed for addUserCollection:', parsed.error.format());
+            return handleError(res, {
+                type: 'error',
+                status: 400,
+                code: 'VALIDATION_ERROR',
+                message: 'Invalid request payload',
+                data: parsed.error.format()
+            });
+        }
+
+        // Use the validated data from parsed.data
         const {
             character_name,
             character_primary_faction,
@@ -170,45 +238,13 @@ export const addUserCollection = async (req: Request, res: Response) => {
             collection_notes,
             acquisition_date,
             acquisition_location,
-            public: isPublic = true
-        } = req.body;
-
-        // Parse stringified arrays from FormData
-        let { media_images, toy_images, alt_character_name } = req.body;
-
-        // Initialize arrays
-        if (typeof media_images === 'string') {
-            try {
-                media_images = JSON.parse(media_images);
-            } catch (e) {
-                media_images = [];
-            }
-        }
-        if (!Array.isArray(media_images)) {
-            media_images = [];
-        }
-
-        if (typeof toy_images === 'string') {
-            try {
-                toy_images = JSON.parse(toy_images);
-            } catch (e) {
-                toy_images = [];
-            }
-        }
-        if (!Array.isArray(toy_images)) {
-            toy_images = [];
-        }
-
-        if (typeof alt_character_name === 'string') {
-            try {
-                alt_character_name = JSON.parse(alt_character_name);
-            } catch (e) {
-                alt_character_name = [];
-            }
-        }
-        if (!Array.isArray(alt_character_name)) {
-            alt_character_name = [];
-        }
+            public: isPublic,
+            media_images,
+            toy_images,
+            alt_character_name,
+            price,
+            currency,
+        } = parsed.data;
 
         // Handle file uploads - now req.files is an object with field names as keys
         if (req.files && typeof req.files === 'object' && !Array.isArray(req.files)) {
@@ -295,6 +331,8 @@ export const addUserCollection = async (req: Request, res: Response) => {
             collection_notes: collection_notes || "",
             acquisition_date: acquisition_date ? new Date(acquisition_date) : undefined,
             acquisition_location: acquisition_location || "",
+            price: price ?? 0.0,
+            currency: currency || 'USD',
             alt_character_name,
             user_id: req.user._id, // This was attached to the http request during the validate token process
             user_profile_id: req.user.profile_id, // This was attached to the http request during the validate token process
@@ -467,7 +505,71 @@ export const editUserCollectionById = async (req: Request, res: Response) => {
             });
         }
 
-        // Destructure all fields from the body according to userCollectionSchema
+        // Validate & parse incoming edit payload using Zod (all fields optional)
+        const editSchema = z.object({
+            character_name: z.string().min(1).optional(),
+            character_primary_faction: z.enum(["Autobot", "Decepticon"]).optional(),
+            character_description: z.string().optional().nullable(),
+            toy_line: z.string().optional().nullable(),
+            toy_class: z.string().optional().nullable(),
+            collection_notes: z.string().optional().nullable(),
+            acquisition_date: z.preprocess((val: any) => {
+                if (!val) return undefined;
+                const d = new Date(String(val));
+                return isNaN(d.getTime()) ? undefined : d;
+            }, z.date().optional()),
+            acquisition_location: z.string().optional().nullable(),
+            public: z.preprocess((val: any) => {
+                if (val === undefined) return undefined;
+                if (typeof val === 'string') return val === 'true' || val === '1';
+                return Boolean(val);
+            }, z.boolean().optional()),
+            imagesToDelete: z.any().optional(),
+            media_images: z.preprocess((val: any) => {
+                if (!val) return undefined;
+                if (typeof val === 'string') {
+                    try { return JSON.parse(val); } catch { return undefined; }
+                }
+                return val;
+            }, z.array(z.string()).optional()),
+            toy_images: z.preprocess((val: any) => {
+                if (!val) return undefined;
+                if (typeof val === 'string') {
+                    try { return JSON.parse(val); } catch { return undefined; }
+                }
+                return val;
+            }, z.array(z.string()).optional()),
+            alt_character_name: z.preprocess((val: any) => {
+                if (!val) return undefined;
+                if (typeof val === 'string') {
+                    try { return JSON.parse(val); } catch { return undefined; }
+                }
+                return val;
+            }, z.array(z.any()).optional()),
+            // price and currency may come as strings from FormData
+            price: z.preprocess((val: any) => {
+                if (val === undefined || val === null || val === '') return undefined;
+                const n = Number(val);
+                return isNaN(n) ? undefined : Math.round(n * 100) / 100;
+            }, z.number().min(0).optional()),
+            currency: z.preprocess((val: any) => {
+                if (!val) return undefined;
+                try { return String(val).toUpperCase(); } catch { return undefined; }
+            }, z.string().optional().refine((c) => c === undefined ? true : ALLOWED_CURRENCIES.includes(String(c).toUpperCase()), { message: 'Invalid currency code' })),
+        });
+
+        const parsed = editSchema.safeParse(req.body);
+        if (!parsed.success) {
+            console.warn('Validation failed for editUserCollectionById:', parsed.error.format());
+            return handleError(res, {
+                type: 'error',
+                status: 400,
+                code: 'VALIDATION_ERROR',
+                message: 'Invalid request payload',
+                data: parsed.error.format()
+            });
+        }
+
         const {
             character_name,
             character_primary_faction,
@@ -478,44 +580,59 @@ export const editUserCollectionById = async (req: Request, res: Response) => {
             acquisition_date,
             acquisition_location,
             public: isPublic,
-            imagesToDelete
-        } = req.body;
+            imagesToDelete,
+            media_images: parsed_media_images,
+            toy_images: parsed_toy_images,
+            alt_character_name: parsed_alt_character_name,
+            // price and currency may come as strings from FormData (parsed above)
+            price,
+            currency
+        } = parsed.data;
 
-        // Parse stringified arrays from FormData
-        let { media_images, toy_images, alt_character_name } = req.body;
+        // Use parsed arrays from Zod when present, otherwise parse raw body and fall back to existing values
+        let media_images: any = parsed_media_images !== undefined ? parsed_media_images : undefined;
+        let toy_images: any = parsed_toy_images !== undefined ? parsed_toy_images : undefined;
+        let alt_character_name: any = parsed_alt_character_name !== undefined ? parsed_alt_character_name : undefined;
 
-        // Initialize arrays with existing data or empty arrays
-        if (typeof media_images === 'string') {
-            try {
-                media_images = JSON.parse(media_images);
-            } catch (e) {
-                media_images = existingCollectionItem.media_images || [];
+        // If parsed values were not provided, try to parse them from req.body (stringified FormData) or fall back to existing item
+        if (media_images === undefined) {
+            media_images = req.body.media_images;
+            if (typeof media_images === 'string') {
+                try { media_images = JSON.parse(media_images); } catch { media_images = existingCollectionItem.media_images || []; }
             }
-        }
-        if (!Array.isArray(media_images)) {
-            media_images = existingCollectionItem.media_images || [];
+            if (!Array.isArray(media_images)) media_images = existingCollectionItem.media_images || [];
         }
 
-        if (typeof toy_images === 'string') {
-            try {
-                toy_images = JSON.parse(toy_images);
-            } catch (e) {
-                toy_images = existingCollectionItem.toy_images || [];
+        if (toy_images === undefined) {
+            toy_images = req.body.toy_images;
+            if (typeof toy_images === 'string') {
+                try { toy_images = JSON.parse(toy_images); } catch { toy_images = existingCollectionItem.toy_images || []; }
             }
-        }
-        if (!Array.isArray(toy_images)) {
-            toy_images = existingCollectionItem.toy_images || [];
+            if (!Array.isArray(toy_images)) toy_images = existingCollectionItem.toy_images || [];
         }
 
-        if (typeof alt_character_name === 'string') {
-            try {
-                alt_character_name = JSON.parse(alt_character_name);
-            } catch (e) {
-                alt_character_name = existingCollectionItem.alt_character_name || [];
+        if (alt_character_name === undefined) {
+            alt_character_name = req.body.alt_character_name;
+            if (typeof alt_character_name === 'string') {
+                try { alt_character_name = JSON.parse(alt_character_name); } catch { alt_character_name = existingCollectionItem.alt_character_name || []; }
             }
+            if (!Array.isArray(alt_character_name)) alt_character_name = existingCollectionItem.alt_character_name || [];
         }
-        if (!Array.isArray(alt_character_name)) {
-            alt_character_name = existingCollectionItem.alt_character_name || [];
+
+        // Parse price and currency values which may arrive as strings via FormData
+        // Normalize price to a Number rounded to 2 decimals, or leave undefined if not provided/invalid
+        let priceVal: any = price;
+        let currencyVal: any = currency;
+
+        if (priceVal === undefined || priceVal === null || priceVal === '') {
+            priceVal = undefined;
+        } else {
+            const n = Number(priceVal);
+            priceVal = isNaN(n) ? undefined : Math.round(n * 100) / 100;
+        }
+
+        if (currencyVal === '') {
+            currencyVal = undefined;
         }
 
         // Handle images to delete
@@ -636,6 +753,10 @@ export const editUserCollectionById = async (req: Request, res: Response) => {
         }
         if (acquisition_location !== undefined) updateData.acquisition_location = acquisition_location;
         if (isPublic !== undefined) updateData.public = isPublic;
+
+        // Include price and currency when provided
+        if (priceVal !== undefined) updateData.price = priceVal;
+        if (currencyVal !== undefined) updateData.currency = currencyVal;
 
         // Always update arrays (they might have been modified by file uploads or deletions)
         updateData.media_images = media_images;

@@ -27,8 +27,10 @@ export default [
                 ])
             ]),
             ...prefix("my-favorites", [
-                index("routes/collection/favorite/myFavorites.tsx"),
-                // route(":_id", "routes/favorite/myFavoriteItem.tsx"),
+                layout("routes/collection/favorite/layout.tsx", [
+                    index("routes/collection/favorite/myFavorites.tsx"),
+                    // route(":_id", "routes/favorite/myFavoriteItem.tsx"),
+                ])
             ])
         ]),
 

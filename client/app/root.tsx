@@ -1,12 +1,13 @@
+import React, { useEffect } from "react";
 import {
   isRouteErrorResponse,
   Links,
   Meta,
-  Navigate,
   Outlet,
   redirect,
   Scripts,
   ScrollRestoration,
+  useLoaderData,
 } from "react-router";
 
 import type { Route } from "./+types/root";
@@ -56,9 +57,23 @@ export async function clientLoader() {
 }
 
 export function Layout({ children }: { children: React.ReactNode }) {
+  const data = useLoaderData() as { userProfile?: UserProfile } | undefined;
+  const initialProfile = data?.userProfile ?? null;
+
   return (
-    <html lang="en">
+    // suppressHydrationWarning prevents React from logging hydration
+    // mismatches for attributes that are intentionally mutated by a
+    // pre-hydration inline script (for example to set initial theme
+    // based on prefers-color-scheme). See React docs:
+    // https://react.dev/reference/react/DOM/suppressHydrationWarning
+    <html lang="en" suppressHydrationWarning>
       <head>
+        {/* Inline script to set initial theme based on system preference to avoid FOUC */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var m=window.matchMedia('(prefers-color-scheme: dark)'); if(m && m.matches) document.documentElement.classList.add('dark'); else document.documentElement.classList.remove('dark');}catch(e){} })()`,
+          }}
+        />
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" type="image/svg+xml" href="/images/logo/favicon.ico" />
@@ -76,6 +91,32 @@ export function Layout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
+  // Listen for system theme changes on the client and toggle the `.dark` class
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const onChange = (e: MediaQueryListEvent | MediaQueryList) => {
+      try {
+        if ((e as any).matches) document.documentElement.classList.add("dark");
+        else document.documentElement.classList.remove("dark");
+      } catch (err) {
+        /* ignore */
+      }
+    };
+    // Some browsers support addEventListener on MediaQueryList
+    if ((mq as any).addEventListener) mq.addEventListener("change", onChange);
+    else mq.addListener(onChange as any);
+    return () => {
+      if ((mq as any).removeEventListener)
+        mq.removeEventListener("change", onChange);
+      else mq.removeListener(onChange as any);
+    };
+  }, []);
+
+  // Read loader data (if present). Routes will use route loader data
+  // (useRouteLoaderData("root")) to access `userProfile` as needed.
+  useLoaderData();
+
   return <Outlet />;
 }
 

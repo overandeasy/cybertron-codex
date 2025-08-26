@@ -12,9 +12,9 @@ const buttonVariants = cva(
         default:
           "bg-primary text-primary-foreground shadow-xs hover:bg-primary/90",
         theme_autobot:
-          "bg-autobot-red text-primary-foreground shadow-xs hover:bg-autobot-red/80",
+          "bg-autobot-red text-primary-foreground dark:text-primary shadow-xs hover:bg-autobot-red/80",
         theme_decepticon:
-          "bg-decepticon-purple text-primary-foreground shadow-xs hover:bg-decepticon-purple/80",
+          "bg-decepticon-purple text-primary-foreground dark:text-primary shadow-xs hover:bg-decepticon-purple/80",
         destructive:
           "bg-destructive text-white shadow-xs hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60",
         outline:

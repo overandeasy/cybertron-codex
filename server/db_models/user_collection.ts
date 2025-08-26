@@ -11,6 +11,8 @@ const userCollectionSchema = new mongoose.Schema(
         toy_images: [{ type: String }],
         collection_notes: { type: String },
         acquisition_date: { type: Date },
+        price: { type: Number, default: 0.0 },
+        currency: { type: String, default: 'USD' },
 
         user_profile_id: {
             type: mongoose.Schema.Types.ObjectId,
