@@ -27,6 +27,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "~/components/ui/sidebar";
+import SignOutButton from "../SignOutButton";
 
 export function NavUser({
   user,
@@ -103,15 +104,8 @@ export function NavUser({
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={() => {
-                localStorage.removeItem("token");
-                console.log("User logged out");
-                navigate("/");
-              }}
-            >
-              <LogOut />
-              Log out
+            <DropdownMenuItem>
+              <SignOutButton variant="ghost" />
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

@@ -223,7 +223,38 @@ body {
     animation: energonPulse 3s ease-in-out infinite;
   }
 
-  @keyframes revolveY {
+  /* Revolving Logo Animation for Toasts */
+  .revolving-logo-container {
+    position: relative;
+    transform-style: preserve-3d;
+    animation: revolve-3d 1s ease-in-out forwards;
+  }
+  .revolving-logo-front,
+  .revolving-logo-back {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden; /* Safari */
+  }
+
+  .revolving-logo-back {
+    transform: rotateY(180deg);
+  }
+
+  @keyframes revolve-3d {
+    from {
+      transform: rotateY(0deg);
+    }
+    to {
+      transform: rotateY(180deg);
+    }
+  }
+  .animate-logo-revolve {
+    animation: revolve 2s infinite linear;
+  }
+
+  @keyframes revolve {
     from {
       transform: rotateY(0deg);
     }
@@ -231,13 +262,5 @@ body {
     to {
       transform: rotateY(360deg);
     }
-  }
-  .perspective {
-    perspective: 1000px;
-  }
-  .animate-logo-revolve {
-    transform-origin: center;
-    backface-visibility: hidden;
-    animation: revolveY 1000ms ease-in-out forwards;
   }
 }

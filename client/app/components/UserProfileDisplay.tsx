@@ -1,10 +1,10 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import type { UserProfile } from "~/lib/zod";
 import { Avatar } from "./ui/avatar";
 import { cn } from "~/lib/utils";
 import { Button } from "./ui/button";
 import { Link } from "react-router";
-import { setPrimaryProfileImage } from "~/api/user";
+import { useFetcher } from "react-router";
 import { themeToast } from "~/components/ThemeToast";
 import { socialKeyLabel } from "~/lib/social";
 
@@ -13,7 +13,10 @@ type Props = {
   className?: string;
 };
 export function UserProfileDisplay({ userProfile, className }: Props) {
+  const fetcher = useFetcher();
   const images = userProfile.images ?? [];
+  const [savingImage, setSavingImage] = useState<string | undefined>(undefined);
+  const prevPreviewRef = useRef<string | undefined>(undefined);
   const initialPreview = useMemo(() => {
     if (userProfile.primary_profile_image)
       return userProfile.primary_profile_image;
@@ -24,6 +27,23 @@ export function UserProfileDisplay({ userProfile, className }: Props) {
   const fullName = [userProfile.first_name, userProfile.last_name]
     .filter(Boolean)
     .join(" ");
+
+  useEffect(() => {
+    if (!fetcher.data) return;
+    const data = fetcher.data as any;
+    if (data.ok) {
+      themeToast("success", "Primary profile image updated");
+      setSavingImage(undefined);
+    } else if (data.error) {
+      themeToast(
+        "fail",
+        data.error?.message || "Failed to update primary image"
+      );
+      // revert optimistic preview
+      setPreview(prevPreviewRef.current);
+      setSavingImage(undefined);
+    }
+  }, [fetcher.data]);
 
   return (
     <div className={cn("grid grid-cols-1 md:grid-cols-5 gap-8", className)}>
@@ -51,47 +71,49 @@ export function UserProfileDisplay({ userProfile, className }: Props) {
         {images.length > 0 && (
           <div className="grid grid-cols-5 gap-2">
             {images.map((src) => (
-              <button
+              <fetcher.Form
+                method="post"
+                action="/user/my-profile/set-primary-image"
                 key={src}
-                type="button"
-                onClick={async () => {
-                  // Optimistic UI: set preview immediately
-                  setPreview(src);
-                  try {
-                    const updatedProfile = await setPrimaryProfileImage(src);
-                    themeToast("success", "Primary profile image updated");
-                    // Server-side persisted. We intentionally do not update app-level
-                    // profile here to avoid coupling UI propagation to this action.
-                  } catch (err: any) {
-                    // revert if error
-                    setPreview(
-                      userProfile.primary_profile_image ||
-                        images[images.length - 1] ||
-                        undefined
-                    );
-                    console.error("Failed to set primary profile image", err);
-                    const msg =
-                      err?.message || "Failed to update primary image";
-                    themeToast("fail", msg);
-                  }
-                }}
-                className={cn(
-                  "relative aspect-square overflow-hidden rounded-md ring-1 ring-border",
-                  preview === src && "ring-2 ring-primary"
-                )}
-                title="Set as primary / View"
               >
-                <img
-                  src={src}
-                  alt="Thumbnail"
-                  className="h-full w-full object-cover"
-                />
-                {userProfile.primary_profile_image === src && (
-                  <span className="absolute top-1 left-1 bg-primary text-primary-foreground text-xs px-1 rounded">
-                    Primary
-                  </span>
-                )}
-              </button>
+                <input type="hidden" name="image" value={src} />
+                <button
+                  type="submit"
+                  onClick={() => {
+                    // remember previous preview so we can revert on error
+                    prevPreviewRef.current = preview;
+                    // Optimistic UI: set preview immediately
+                    setPreview(src);
+                    setSavingImage(src);
+                  }}
+                  className={cn(
+                    "relative aspect-square overflow-hidden rounded-md ring-1 ring-border",
+                    preview === src && "ring-2 ring-primary"
+                  )}
+                  title="Set as primary / View"
+                >
+                  <img
+                    src={src}
+                    alt="Thumbnail"
+                    className="h-full w-full object-cover"
+                  />
+                  {userProfile.primary_profile_image === src && (
+                    <span className="absolute top-1 left-1 bg-primary text-primary-foreground text-xs px-1 rounded">
+                      Primary
+                    </span>
+                  )}
+                  {savingImage === src && fetcher.state !== "idle" ? (
+                    <span className="absolute top-1 right-1 bg-yellow-500 text-white text-xs px-1 rounded">
+                      Saving
+                    </span>
+                  ) : null}
+                  {savingImage === src && fetcher.data && fetcher.data.error ? (
+                    <span className="absolute top-1 right-1 bg-red-500 text-white text-xs px-1 rounded">
+                      Error
+                    </span>
+                  ) : null}
+                </button>
+              </fetcher.Form>
             ))}
           </div>
         )}

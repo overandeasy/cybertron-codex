@@ -18,12 +18,14 @@ function CollectionCardSummary({
   isOwner,
   isFavorited,
   onToggleFavorite,
+  statusFlag,
   ...props // Accept additional props so parent component's asChild would work
 }: {
   collectionItem: UserCollection;
   isOwner: boolean | null;
   isFavorited?: boolean;
   onToggleFavorite?: () => void;
+  statusFlag?: "New" | "Updated" | null;
 }) {
   const lastMediaImage =
     collectionItem.toy_images && collectionItem.toy_images.length > 0
@@ -32,8 +34,16 @@ function CollectionCardSummary({
   return (
     <Card
       {...props} // Spread additional props to the root DOM element (mainly for parent component's asChild to work)
-      className="hover:cursor-pointer hover:scale-105 transition-transform duration-200"
+      className="hover:cursor-pointer hover:scale-105 transition-transform duration-200 relative"
     >
+      {statusFlag && (
+        <Badge
+          variant={statusFlag === "New" ? "theme_autobot" : "theme_decepticon"}
+          className="absolute top-2 right-2 animate-pulse [animation-duration:6s]"
+        >
+          {statusFlag}
+        </Badge>
+      )}
       <CardHeader>
         <CardTitle>{collectionItem.character_name}</CardTitle>
         {/* Price moved to parent CollectionCard for placement before Acquisition Date */}
@@ -97,12 +107,22 @@ function CollectionCardSummary({
           </div>
         )}
       </CardContent>
-      <CardFooter>
+      <CardFooter className="flex gap-1">
         <div className="flex text-muted-foreground text-sm">
           Shared by:{" "}
           {isOwner
             ? "Me"
             : `${collectionItem.user_profile_id.first_name} ${collectionItem.user_profile_id.last_name}`}
+        </div>
+        <div className="flex text-muted-foreground text-sm">
+          on{" "}
+          {collectionItem?.createdAt
+            ? new Date(collectionItem.createdAt).toLocaleDateString("en-GB", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+              })
+            : "Unknown Date"}
         </div>
       </CardFooter>
     </Card>

@@ -1,6 +1,12 @@
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
-
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "~/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -19,14 +25,9 @@ import {
 import { Link, useRouteLoaderData, useNavigate } from "react-router";
 import { ImageOffIcon, Pencil, Trash2, Star } from "lucide-react";
 import { useEffect, useState } from "react";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "~/components/ui/card";
-import { themeToast } from "~/components/ThemeToast";
+import { Skeleton } from "../ui/skeleton";
+import { themeToast } from "../ThemeToast";
+
 import {
   getComments,
   addComment,
@@ -54,25 +55,22 @@ import { DeleteCollectionItemButton } from "./DeleteCollectionItemButton";
 //   location?: "my-collection" | "home";
 // }
 
-export default function CollectionCard(props: {
-  key: string;
+type CollectionCardProps = {
   collectionItem: UserCollection;
   location: "/collection/my-collection" | "/home";
-  // if provided, parent will handle unfavorite API call and optimistic removal
-  onUnfavorite?: (collectionItemId: string) => Promise<void> | void;
-}) {
-  // {
-  // useDeleteCollectionItem,
-  // targetCollection,
-  // collectionItem,
-  // targetCollectionItemId,
-  // location,
-  // }: CollectionCardProps
+  onUnfavorite?: (collectionItemId: string) => void | Promise<void>;
+  statusFlag?: "New" | "Updated" | null;
+};
 
+export default function CollectionCard({
+  collectionItem,
+  location,
+  onUnfavorite,
+  statusFlag,
+}: CollectionCardProps) {
   const loaderData = useRouteLoaderData("root") as {
     userProfile: UserProfile | null;
   };
-  const { collectionItem, location, onUnfavorite } = props;
 
   const currentUser = loaderData?.userProfile;
 
@@ -167,6 +165,7 @@ export default function CollectionCard(props: {
         isOwner={isOwner}
         isFavorited={isFavorited}
         onToggleFavorite={toggleFavorite}
+        statusFlag={statusFlag}
       />
     </div>
   ) : (
@@ -177,6 +176,7 @@ export default function CollectionCard(props: {
           isOwner={isOwner}
           isFavorited={isFavorited}
           onToggleFavorite={toggleFavorite}
+          statusFlag={statusFlag}
         />
       </DialogTrigger>
       <DialogContent className="sm:max-w-[80vw] max-h-[80vh] overflow-y-auto">

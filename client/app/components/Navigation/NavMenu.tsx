@@ -1,4 +1,5 @@
 import { HomeIcon, Library, LogOut, Plus, Star, User } from "lucide-react";
+import { Info } from "lucide-react";
 import {
   NavigationMenu,
   NavigationMenuItem,
@@ -8,6 +9,7 @@ import {
 import { cn } from "~/lib/utils";
 import { Button } from "../ui/button";
 import { Link, useNavigate } from "react-router";
+import SignOutButton from "./SignOutButton";
 
 function NavMenu() {
   const navigate = useNavigate();
@@ -24,6 +26,15 @@ function NavMenu() {
               >
                 <HomeIcon className="w-4 h-4" />
                 <span className="hidden sm:flex"> Home</span>
+              </NavigationMenuLink>
+            </NavigationMenuItem>
+            <NavigationMenuItem>
+              <NavigationMenuLink
+                href="/about"
+                className={cn("flex flex-row items-center gap-2")}
+              >
+                <Info className="w-4 h-4" />
+                <span className="hidden sm:flex"> About</span>
               </NavigationMenuLink>
             </NavigationMenuItem>
             <NavigationMenuItem>
@@ -66,18 +77,7 @@ function NavMenu() {
               Quick Add
             </Link>
           </Button> */}
-          <Button
-            variant="theme_decepticon"
-            size="sm"
-            onClick={() => {
-              localStorage.removeItem("token");
-              console.log("User logged out");
-              navigate("/");
-            }}
-          >
-            <LogOut />
-            <span className="hidden sm:flex"> Sign out</span>
-          </Button>
+          <SignOutButton variant={"theme_decepticon"} />
         </div>
       </div>
     </div>

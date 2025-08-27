@@ -4,6 +4,7 @@ export default [
     index("routes/landingPage.tsx"),
 
     route("home", "routes/home.tsx"),
+    route("about", "routes/about.tsx"),
     ...prefix("auth", [
         // This is the auth layout that wraps around the sign-in and sign-up pages and provide a unified layout UI. 
         layout("routes/auth/layout.tsx", [
@@ -13,9 +14,12 @@ export default [
     ]),
     // This is the main layout that provides a sidebar and breadcrumb navigation.
     layout("routes/sidebarLayout.tsx", [
-        ...prefix("user/my-profile", [
-            index("routes/user/myProfile.tsx"),
-            route("edit", "routes/user/editMyProfile.tsx"),
+        ...prefix("user", [
+            ...prefix("my-profile", [
+                index("routes/user/myProfile.tsx"),
+                route("edit", "routes/user/editMyProfile.tsx"),
+                route("set-primary-image", "routes/user/set-primary-image.tsx"),]),
+
         ]),
         ...prefix("collection", [
             ...prefix("my-collection", [

@@ -27,6 +27,14 @@ import {
   editComment,
   deleteComment,
 } from "~/api/collection";
+import type { Route } from "./+types/myCollectionItem";
+
+export function meta({}: Route.MetaArgs) {
+  return [
+    { title: "Collection Item" },
+    { name: "description", content: "View and edit your collection item" },
+  ];
+}
 
 export default function MyCollectionItem() {
   const loaderData = useRouteLoaderData("routes/collection/layout");

@@ -3,23 +3,15 @@ import type { Route } from "./+types/home";
 import type { UserCollection } from "~/lib/zod";
 import { getAllPublicCollections } from "~/api/collection";
 import { Button } from "~/components/ui/button";
-import {
-  NavigationMenu,
-  NavigationMenuContent,
-  NavigationMenuItem,
-  NavigationMenuLink,
-  NavigationMenuList,
-  NavigationMenuTrigger,
-  navigationMenuTriggerStyle,
-} from "~/components/ui/navigation-menu";
-
-import { User, Library, Plus, HomeIcon } from "lucide-react";
-import { cn } from "~/lib/utils";
+import { useMemo } from "react";
 
 import CollectionCard from "../components/CollectionCard/CollectionCard";
-import { useEffect, useState } from "react";
-import { themeToast } from "~/components/ThemeToast";
+
 import NavMenu from "~/components/Navigation/NavMenu";
+
+export function meta({}: Route.MetaArgs) {
+  return [{ title: "Home" }, { name: "description", content: "Homepage" }];
+}
 
 export async function clientLoader() {
   const token = localStorage.getItem("token");
@@ -48,6 +40,30 @@ function Home({ loaderData }: Route.ComponentProps) {
   const allPublicCollections =
     ((loaderData?.allPublicCollections as unknown as UserCollection[]) || []) ??
     null;
+
+  const { newestIds, updatedIds } = useMemo(() => {
+    if (!allPublicCollections || allPublicCollections.length === 0) {
+      return { newestIds: new Set(), updatedIds: new Set() };
+    }
+    const sortedByCreated = [...allPublicCollections].sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+    const newestIds = new Set(
+      sortedByCreated.slice(0, 3).map((item) => item._id)
+    );
+
+    const sortedByUpdated = [...allPublicCollections].sort(
+      (a, b) =>
+        new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+    );
+    const updatedIds = new Set(
+      sortedByUpdated.slice(0, 3).map((item) => item._id)
+    );
+
+    return { newestIds, updatedIds };
+  }, [allPublicCollections]);
+
   if (!isLoggedIn) {
     console.warn("User not signed in.");
     return <Navigate to="/auth/sign-in" />;
@@ -65,13 +81,25 @@ function Home({ loaderData }: Route.ComponentProps) {
 
         {allPublicCollections && allPublicCollections.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {allPublicCollections.map((collectionItem) => (
-              <CollectionCard
-                key={collectionItem._id}
-                collectionItem={collectionItem}
-                location="/home"
-              />
-            ))}
+            {allPublicCollections.map((collectionItem) => {
+              const isNew = newestIds.has(collectionItem._id);
+              const isUpdated = !isNew && updatedIds.has(collectionItem._id);
+
+              let statusFlag: "New" | "Updated" | null = null;
+              if (isNew) {
+                statusFlag = "New";
+              } else if (isUpdated) {
+                statusFlag = "Updated";
+              }
+              return (
+                <CollectionCard
+                  key={collectionItem._id}
+                  collectionItem={collectionItem}
+                  location="/home"
+                  statusFlag={statusFlag}
+                />
+              );
+            })}
           </div>
         ) : (
           <div className="text-center py-8">

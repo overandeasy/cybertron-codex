@@ -3,7 +3,17 @@ import { useRouteLoaderData } from "react-router";
 import { removeFavorite } from "~/api/collection";
 import CollectionCard from "~/components/CollectionCard/CollectionCard";
 import type { UserCollection, UserProfile } from "~/lib/zod";
+import type { Route } from "./+types/myFavorites";
 
+export function meta({}: Route.MetaArgs) {
+  return [
+    { title: "My Favorites" },
+    {
+      name: "description",
+      content: "View and manage your favorite collection items",
+    },
+  ];
+}
 export interface UserFavoriteItem {
   _id: string;
   createdAt: Date;

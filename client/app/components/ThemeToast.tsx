@@ -9,18 +9,13 @@ export const themeToast = (
   location?: "/collection/my-collection" | "/home" | string,
   navigate?: NavigateFunction
 ) => {
-  //   const content = () => {
-  //     return (
-  //       <div className="flex items-center justify-center">
-  //         <span>
-  //           <img src="/images/logo/autobot_color.svg" alt="Autobot Logo" />
-  //         </span>
-  //         {message}
-  //       </div>
-  //     );
-  //   };
+  const logos = [
+    "/images/logo/autobot_color.svg",
+    "/images/logo/decepticon_color.svg",
+  ];
 
   if (type === "success") {
+    const [frontLogo, backLogo] = logos.sort(() => Math.random() - 0.5);
     return toast.custom(
       (id) => (
         <div
@@ -28,11 +23,18 @@ export const themeToast = (
             "flex font-special text-xl text-shadow-md justify-center items-center p-4 m-auto rounded-lg min-w-sm max-w-1/2 [perspective:1000px] bg-background/50 backdrop-blur-md shadow-lg" // Added bg-white/80 for semi-transparent background, backdrop-blur-md for blur effect, and shadow-lg for better visibility
           )}
         >
-          <img
-            src="/images/logo/autobot_color.svg"
-            alt="Autobot Logo"
-            className="mr-2 w-10 h-10 flex-shrink-0 animate-logo-revolve" //animate-logo-revolve is a custom animation utility configured in app.css.
-          />
+          <div className="revolving-logo-container mr-2 w-10 h-10 flex-shrink-0">
+            <img
+              src={frontLogo}
+              alt="Faction Logo"
+              className="revolving-logo-front"
+            />
+            <img
+              src={backLogo}
+              alt="Faction Logo"
+              className="revolving-logo-back"
+            />
+          </div>
           <span>{message}</span>
 
           {/* optional close button */}
@@ -63,6 +65,7 @@ export const themeToast = (
       }
     );
   } else {
+    const [frontLogo, backLogo] = logos.sort(() => Math.random() - 0.5);
     return toast.custom(
       (id) => (
         <div
@@ -70,11 +73,18 @@ export const themeToast = (
             "flex font-special text-xl text-shadow-md justify-center items-center p-4 m-auto rounded-lg min-w-sm max-w-1/2 [perspective:1000px] bg-background/50 backdrop-blur-md shadow-lg" //Using "perspective" to ensure 3D perspective for any 3D animation
           )}
         >
-          <img
-            src="/images/logo/decepticon_color.svg"
-            alt="Decepticon Logo"
-            className="mr-2 w-10 h-10 flex-shrink-0 animate-logo-revolve" //animate-logo-revolve is a custom animation utility configured in app.css.
-          />
+          <div className="revolving-logo-container mr-2 w-10 h-10 flex-shrink-0">
+            <img
+              src={backLogo}
+              alt="Faction Logo"
+              className="revolving-logo-front"
+            />
+            <img
+              src={frontLogo}
+              alt="Faction Logo"
+              className="revolving-logo-back"
+            />
+          </div>
           <span>{message}</span>
 
           {/* optional close button */}
