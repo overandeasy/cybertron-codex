@@ -42,7 +42,7 @@ export function UserProfileForm({
   onSubmit,
   isSubmitting,
 }: UserProfileFormProps) {
-  [...SOCIAL_KEYS].sort((a, b) => a.localeCompare(b)); // Ensure keys are sorted for consistent rendering
+  const sortedSocialKeys = [...SOCIAL_KEYS].sort((a, b) => a.localeCompare(b)); // Ensure keys are sorted for consistent rendering
 
   const navigate = useNavigate();
 
@@ -301,7 +301,7 @@ export function UserProfileForm({
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {SOCIAL_KEYS.map((key) => (
+                          {sortedSocialKeys.map((key) => (
                             <SelectItem key={key} value={key}>
                               {socialKeyLabel(key)}
                             </SelectItem>

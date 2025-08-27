@@ -67,3 +67,269 @@ const error = new Error(errorData.message || "Sign-in failed"); // The Error con
 Object.assign(error, errorData); // Assign the errorData properties to the error instance (the previous inclusion of errorData.message in the Error constructor was necessary, not redundant).
 throw error;
 }
+
+# Saga Pattern Implementation for Data Consistency
+
+## Overview
+
+This document describes the implementation of the Enhanced Saga Pattern for distributed transaction management in the Cybertron Codex application. The implementation ensures data consistency across MongoDB and Cloudinary operations, with comprehensive Zod validation for all input data.
+
+## Key Features
+
+### EnhancedSagaTransaction Class (`server/utils/sagaTransaction.ts`)
+
+- **Distributed Transaction Management**: Handles operations across multiple systems (MongoDB + Cloudinary)
+- **MongoDB Transaction Support**: Optional integration with MongoDB sessions and transactions
+- **Automatic Rollback**: Executes compensating actions in reverse order when failures occur
+- **Retry Logic**: Configurable retry attempts with exponential backoff
+- **Comprehensive Logging**: Detailed logging for monitoring and debugging
+
+### Zod Validation Integration
+
+- **Type-Safe Validation**: All controller functions now use Zod schemas for input validation
+- **Consistent Error Handling**: Standardized validation error responses across all endpoints
+- **FormData Support**: Proper parsing and validation of multipart form data and stringified arrays
+- **Safe Parsing**: Uses `safeParse()` to prevent runtime errors during validation
+
+### Helper Methods
+
+- `createCloudinaryUploadStep()`: Pre-configured step for image uploads with automatic cleanup
+- `createMongoStep()`: Pre-configured step for MongoDB operations with rollback support
+
+## Implemented Functions
+
+### High Priority (✅ Implemented)
+
+#### 1. `addUserCollection` (collection.ts)
+
+**Risk Level**: Critical
+**Operations**:
+
+- Upload media images to Cloudinary
+- Upload toy images to Cloudinary
+- Create MongoDB collection document
+
+**Saga Steps**:
+
+1. Upload media images (with rollback via image deletion)
+2. Upload toy images (with rollback via image deletion)
+3. Create collection document (with rollback via document deletion)
+
+**Zod Validation**: Comprehensive schema with preprocessing for FormData arrays, currency validation, and date parsing.
+
+#### 2. `editUserCollectionById` (collection.ts)
+
+**Risk Level**: Critical
+**Operations**:
+
+- Delete old images from Cloudinary
+- Upload new images to Cloudinary
+- Update MongoDB document
+
+**Saga Steps**:
+
+1. Delete old images from Cloudinary (partial rollback - cannot restore deleted images)
+2. Upload new media images (with rollback via image deletion)
+3. Upload new toy images (with rollback via image deletion)
+4. Update collection document (with rollback to original state)
+
+#### 3. `deleteUserCollectionItem` (collection.ts)
+
+**Risk Level**: Critical
+**Operations**:
+
+- Delete related comments from MongoDB
+- Delete related favorites from MongoDB
+- Delete images from Cloudinary
+- Delete collection document from MongoDB
+
+**Saga Steps**:
+
+1. Delete collection comments (with rollback via document restoration)
+2. Delete collection favorites (with rollback via document restoration)
+3. Delete Cloudinary images (partial rollback - cannot restore deleted images)
+4. Delete collection document (with rollback via document restoration)
+
+#### 4. `updateUserProfile` (user.ts)
+
+**Risk Level**: High
+**Operations**:
+
+- Delete old profile images from Cloudinary
+- Upload new profile image to Cloudinary
+- Update user profile document in MongoDB
+
+**Saga Steps**:
+
+1. Delete old profile images (partial rollback - cannot restore deleted images)
+2. Upload new profile image (with rollback via image deletion)
+3. Update profile document (with rollback to original state)
+
+**Zod Validation**: Comprehensive profile update schema with faction enum, array preprocessing for FormData.
+
+### Medium Priority (✅ Zod Validation Added)
+
+#### 5. `signUp` (user.ts)
+
+**Risk Level**: Medium
+**Operations**:
+
+- Create auth document in MongoDB
+- Create user profile document in MongoDB
+- Generate JWT token
+
+**Zod Validation**: Email format validation, password length requirements, required name fields.
+
+#### 6. `loginUser` (user.ts)
+
+**Risk Level**: Low
+**Operations**:
+
+- Query auth document
+- Generate JWT token
+
+**Zod Validation**: Email format validation, required password field.
+
+#### 7. `setPrimaryProfileImage` (user.ts)
+
+**Risk Level**: Low
+**Operations**:
+
+- Update user profile document with primary image URL
+
+**Zod Validation**: URL format validation for image URLs.
+
+## Zod Validation Schemas
+
+### Collection Controller Schemas
+
+- **addUserCollection**: Validates character data, faction enum, price/currency, arrays (media_images, toy_images)
+- **editUserCollectionById**: Optional field validation for updates, imagesToDelete array
+
+### User Controller Schemas
+
+- **signUp**: Email, password (min 6 chars), firstName, lastName (required)
+- **loginUser**: Email format, password required
+- **updateUserProfile**: Optional profile fields, array preprocessing for FormData
+- **setPrimaryProfileImage**: URL validation
+
+### FormData Preprocessing
+
+All schemas include preprocessing for FormData handling:
+
+- Automatic JSON parsing of stringified arrays
+- Safe fallbacks for invalid JSON
+- Type coercion for boolean and numeric values
+
+## Rollback Limitations
+
+### Cloudinary Image Deletion
+
+- **Issue**: Once images are deleted from Cloudinary, they cannot be automatically restored
+- **Mitigation**: Database rollback ensures data consistency, preventing orphaned references
+- **Alternative**: Consider implementing a "soft delete" approach for critical images
+
+### MongoDB Transaction Scope
+
+- **Coverage**: All MongoDB operations within a saga use the same session
+- **Limitation**: Cross-collection operations require careful ordering
+- **Best Practice**: Delete dependent documents before parent documents
+
+## Usage Examples
+
+### Basic Implementation
+
+```typescript
+const saga = new EnhancedSagaTransaction(true); // Enable MongoDB transactions
+
+// Add steps
+saga.addStep(
+  EnhancedSagaTransaction.createCloudinaryUploadStep(
+    "upload_images",
+    async () => uploadImages(files),
+    uploadedUrls // Array to track uploaded URLs for rollback
+  )
+);
+
+saga.addStep(
+  EnhancedSagaTransaction.createMongoStep(
+    "create_document",
+    async () => model.create(data),
+    async () => model.findByIdAndDelete(createdId) // Compensating action
+  )
+);
+
+// Execute
+const result = await saga.execute();
+```
+
+### Error Handling
+
+```typescript
+try {
+  const result = await saga.execute();
+  return handleSuccess(res, { data: result });
+} catch (error) {
+  // Saga automatically executes rollback
+  return handleError(res, {
+    message: "Operation failed",
+    data: error,
+  });
+}
+```
+
+## Monitoring and Debugging
+
+### Log Patterns
+
+- `[Saga] Executing step: {stepName}`
+- `[Saga] Step completed: {stepName}`
+- `[Saga] Transaction failed, starting rollback`
+- `[Saga] Executing compensation for: {stepName}`
+- `[Saga] Rollback process completed`
+
+### Key Metrics to Monitor
+
+- Step execution times
+- Retry attempts and patterns
+- Rollback frequency and causes
+- Cloudinary operation success rates
+
+## Best Practices
+
+### Step Ordering
+
+1. **Least Recoverable First**: Place operations with limited rollback capability (like Cloudinary deletions) early
+2. **Dependencies**: Ensure dependent operations follow their dependencies
+3. **Critical Operations Last**: Place the most critical operations (like primary document creation) last
+
+### Error Handling
+
+- Always provide meaningful step names for debugging
+- Configure appropriate retry counts based on operation type
+- Log compensation failures but continue rollback process
+
+### Performance Considerations
+
+- Use MongoDB transactions judiciously (adds overhead)
+- Consider async execution for independent operations
+- Implement timeout handling for long-running operations
+
+## Future Enhancements
+
+### Potential Improvements
+
+1. **Distributed Transaction Coordinator**: For complex multi-service scenarios
+2. **Event Sourcing Integration**: For audit trails and replay capabilities
+3. **Circuit Breaker Pattern**: For handling external service failures
+4. **Saga Orchestration Dashboard**: For monitoring and manual intervention
+
+### Additional Functions to Implement
+
+- `signUp` function with auth + profile atomicity
+- Batch operations for multiple collection items
+- User account deletion with cascade cleanup
+
+## Context7 Integration
+
+This implementation follows MongoDB transaction patterns and best practices as documented in the Mongoose Context7 library documentation. The saga pattern provides a robust foundation for maintaining data consistency in distributed systems while handling the inherent limitations of cross-service operations.

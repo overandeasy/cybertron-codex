@@ -308,7 +308,7 @@ export default function AddMyCollectionItem() {
                 <Input
                   id="character_primary_faction"
                   {...register("character_primary_faction")}
-                  placeholder="e.g., Autobots"
+                  placeholder="e.g., Autobot"
                 />
                 {errors.character_primary_faction && (
                   <p className="text-sm text-red-600">

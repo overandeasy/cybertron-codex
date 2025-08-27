@@ -6,6 +6,7 @@ import { removeImages } from "../utils/cloudinaryOperations";
 import CollectionCommentModel from "../db_models/collection_comment";
 import UserFavoriteModel from "../db_models/user_favorite";
 import { z } from "zod";
+import { EnhancedSagaTransaction } from "../utils/sagaTransaction";
 
 // Allowed currency codes for validation
 const ALLOWED_CURRENCIES = [
@@ -204,7 +205,9 @@ export const addUserCollection = async (req: Request, res: Response) => {
                     try { return JSON.parse(val); } catch { return []; }
                 }
                 return val;
-            }, z.array(z.any()).optional().default([])),
+            }, z.array(z.object({
+                name: z.string()
+            })).optional().default([])),
             price: z.preprocess((val: any) => {
                 if (val === undefined || val === null || val === '') return undefined;
                 const n = Number(val);
@@ -223,7 +226,7 @@ export const addUserCollection = async (req: Request, res: Response) => {
                 type: 'error',
                 status: 400,
                 code: 'VALIDATION_ERROR',
-                message: 'Invalid request payload',
+                message: 'Invalid data input',
                 data: parsed.error.format()
             });
         }
@@ -246,69 +249,6 @@ export const addUserCollection = async (req: Request, res: Response) => {
             currency,
         } = parsed.data;
 
-        // Handle file uploads - now req.files is an object with field names as keys
-        if (req.files && typeof req.files === 'object' && !Array.isArray(req.files)) {
-            console.log("Processing uploaded files...");
-
-            // Handle media_images files
-            if (req.files['media_images']) {
-                const mediaFiles = Array.isArray(req.files['media_images'])
-                    ? req.files['media_images']
-                    : [req.files['media_images']];
-
-                console.log(`Processing ${mediaFiles.length} media files`);
-
-                const mediaUploadPromises = mediaFiles.map(async (file) => {
-                    try {
-                        const imageUrl = await uploadImage(
-                            file,
-                            req.user,
-                            res,
-                            `cybertron_codex/user_collection_images/media/${userId}`
-                        );
-                        return imageUrl;
-                    } catch (uploadError) {
-                        console.error("Error uploading media file:", uploadError);
-                        return null;
-                    }
-                });
-
-                const mediaUploadResults = await Promise.all(mediaUploadPromises);
-                const successfulMediaUploads = mediaUploadResults.filter(url => url !== null) as string[];
-                media_images.push(...successfulMediaUploads);
-                console.log(`Successfully uploaded ${successfulMediaUploads.length} out of ${mediaFiles.length} media files`);
-            }
-
-            // Handle toy_images files
-            if (req.files['toy_images']) {
-                const toyFiles = Array.isArray(req.files['toy_images'])
-                    ? req.files['toy_images']
-                    : [req.files['toy_images']];
-
-                console.log(`Processing ${toyFiles.length} toy files`);
-
-                const toyUploadPromises = toyFiles.map(async (file) => {
-                    try {
-                        const imageUrl = await uploadImage(
-                            file,
-                            req.user,
-                            res,
-                            `cybertron_codex/user_collection_images/toy/${userId}`
-                        );
-                        return imageUrl;
-                    } catch (uploadError) {
-                        console.error("Error uploading toy file:", uploadError);
-                        return null;
-                    }
-                });
-
-                const toyUploadResults = await Promise.all(toyUploadPromises);
-                const successfulToyUploads = toyUploadResults.filter(url => url !== null) as string[];
-                toy_images.push(...successfulToyUploads);
-                console.log(`Successfully uploaded ${successfulToyUploads.length} out of ${toyFiles.length} toy files`);
-            }
-        }
-
         // Validate required fields
         if (!character_name || !character_primary_faction) {
             return handleError(res, {
@@ -319,40 +259,125 @@ export const addUserCollection = async (req: Request, res: Response) => {
             });
         }
 
-        // Create the new collection data object
-        const collectionData = {
-            character_name,
-            character_primary_faction,
-            character_description: character_description || "",
-            toy_line: toy_line || "",
-            toy_class: toy_class || "",
-            media_images,
-            toy_images,
-            collection_notes: collection_notes || "",
-            acquisition_date: acquisition_date ? new Date(acquisition_date) : undefined,
-            acquisition_location: acquisition_location || "",
-            price: price ?? 0.0,
-            currency: currency || 'USD',
-            alt_character_name,
-            user_id: req.user._id, // This was attached to the http request during the validate token process
-            user_profile_id: req.user.profile_id, // This was attached to the http request during the validate token process
-            public: isPublic
-        };
+        // Initialize Saga Transaction
+        const saga = new EnhancedSagaTransaction(true); // Use MongoDB transactions
+        const uploadedMediaUrls: string[] = [];
+        const uploadedToyUrls: string[] = [];
+        let savedCollection: userCollectionDocument | null = null;
 
-        console.log("Final collection data to save:", JSON.stringify(collectionData, null, 2));
+        // Step 1: Upload media images if provided
+        if (req.files && typeof req.files === 'object' && !Array.isArray(req.files) && req.files['media_images']) {
+            const mediaFiles = Array.isArray(req.files['media_images'])
+                ? req.files['media_images']
+                : [req.files['media_images']];
 
-        // Create and save the new collection
-        const newCollection = new UserCollectionModel(collectionData);
-        const savedCollection = await newCollection.save();
-        console.log("User collection added successfully:", savedCollection);
+            console.log(`Processing ${mediaFiles.length} media files`);
+
+            saga.addStep(EnhancedSagaTransaction.createCloudinaryUploadStep(
+                'upload_media_images',
+                async () => {
+                    const mediaUploadPromises = mediaFiles.map(async (file) => {
+                        const imageUrl = await uploadImage(
+                            file,
+                            req.user,
+                            res,
+                            `cybertron_codex/user_collection_images/media/${userId}`
+                        );
+                        return imageUrl;
+                    });
+
+                    const uploadResults = await Promise.all(mediaUploadPromises);
+                    const successfulUploads = uploadResults.filter(url => url !== null) as string[];
+                    media_images.push(...successfulUploads);
+                    console.log(`Successfully uploaded ${successfulUploads.length} out of ${mediaFiles.length} media files`);
+                    return successfulUploads;
+                },
+                uploadedMediaUrls
+            ));
+        }
+
+        // Step 2: Upload toy images if provided
+        if (req.files && typeof req.files === 'object' && !Array.isArray(req.files) && req.files['toy_images']) {
+            const toyFiles = Array.isArray(req.files['toy_images'])
+                ? req.files['toy_images']
+                : [req.files['toy_images']];
+
+            console.log(`Processing ${toyFiles.length} toy files`);
+
+            saga.addStep(EnhancedSagaTransaction.createCloudinaryUploadStep(
+                'upload_toy_images',
+                async () => {
+                    const toyUploadPromises = toyFiles.map(async (file) => {
+                        const imageUrl = await uploadImage(
+                            file,
+                            req.user,
+                            res,
+                            `cybertron_codex/user_collection_images/toy/${userId}`
+                        );
+                        return imageUrl;
+                    });
+
+                    const uploadResults = await Promise.all(toyUploadPromises);
+                    const successfulUploads = uploadResults.filter(url => url !== null) as string[];
+                    toy_images.push(...successfulUploads);
+                    console.log(`Successfully uploaded ${successfulUploads.length} out of ${toyFiles.length} toy files`);
+                    return successfulUploads;
+                },
+                uploadedToyUrls
+            ));
+        }
+
+        // Step 3: Create and save MongoDB document
+        saga.addStep(EnhancedSagaTransaction.createMongoStep(
+            'create_collection_document',
+            async () => {
+                // Create the new collection data object
+                const collectionData = {
+                    character_name,
+                    character_primary_faction,
+                    character_description: character_description || "",
+                    toy_line: toy_line || "",
+                    toy_class: toy_class || "",
+                    media_images,
+                    toy_images,
+                    collection_notes: collection_notes || "",
+                    acquisition_date: acquisition_date ? new Date(acquisition_date) : undefined,
+                    acquisition_location: acquisition_location || "",
+                    price: price ?? 0.0,
+                    currency: currency || 'USD',
+                    alt_character_name,
+                    user_id: req.user!._id,
+                    user_profile_id: req.user!.profile_id,
+                    public: isPublic
+                };
+
+                console.log("Final collection data to save:", JSON.stringify(collectionData, null, 2));
+
+                // Create and save the new collection
+                const newCollection = new UserCollectionModel(collectionData);
+                savedCollection = await newCollection.save();
+                console.log("User collection added successfully:", savedCollection);
+                return savedCollection;
+            },
+            async () => {
+                // Compensating action: Delete the created document
+                if (savedCollection && (savedCollection as any)._id) {
+                    console.log(`[Saga] Deleting created collection document: ${(savedCollection as any)._id}`);
+                    await UserCollectionModel.findByIdAndDelete((savedCollection as any)._id);
+                }
+            }
+        ));
+
+        // Execute the saga
+        const result = await saga.execute();
+
         return handleSuccess(res, {
             type: 'success',
             status: 201,
             code: 'COLLECTION_CREATED',
             message: "Collection added successfully",
-            data: savedCollection
+            data: result
         });
-
 
     } catch (error) {
         console.error("Error adding user collection:", error);
@@ -545,7 +570,9 @@ export const editUserCollectionById = async (req: Request, res: Response) => {
                     try { return JSON.parse(val); } catch { return undefined; }
                 }
                 return val;
-            }, z.array(z.any()).optional()),
+            }, z.array(z.object({
+                name: z.string()
+            })).optional()),
             // price and currency may come as strings from FormData
             price: z.preprocess((val: any) => {
                 if (val === undefined || val === null || val === '') return undefined;
@@ -565,7 +592,7 @@ export const editUserCollectionById = async (req: Request, res: Response) => {
                 type: 'error',
                 status: 400,
                 code: 'VALIDATION_ERROR',
-                message: 'Invalid request payload',
+                message: 'Invalid data input',
                 data: parsed.error.format()
             });
         }
@@ -620,7 +647,6 @@ export const editUserCollectionById = async (req: Request, res: Response) => {
         }
 
         // Parse price and currency values which may arrive as strings via FormData
-        // Normalize price to a Number rounded to 2 decimals, or leave undefined if not provided/invalid
         let priceVal: any = price;
         let currencyVal: any = currency;
 
@@ -635,34 +661,40 @@ export const editUserCollectionById = async (req: Request, res: Response) => {
             currencyVal = undefined;
         }
 
-        // Handle images to delete
+        // Initialize Saga Transaction
+        const saga = new EnhancedSagaTransaction(true);
+        const newUploadedMediaUrls: string[] = [];
+        const newUploadedToyUrls: string[] = [];
+        const deletedImageUrls: string[] = [];
+        let updatedCollection: any = null;
+        let originalCollectionData: any = null;
+
+        // Step 1: Delete images from Cloudinary if requested
         if (imagesToDelete && typeof imagesToDelete === 'string') {
             try {
                 const imagesToDeleteArray = JSON.parse(imagesToDelete);
-                if (Array.isArray(imagesToDeleteArray)) {
+                if (Array.isArray(imagesToDeleteArray) && imagesToDeleteArray.length > 0) {
+                    saga.addStep({
+                        name: 'delete_old_images',
+                        execute: async () => {
+                            // Filter out images to delete from arrays
+                            media_images = media_images.filter((img: string) => !imagesToDeleteArray.includes(img));
+                            toy_images = toy_images.filter((img: string) => !imagesToDeleteArray.includes(img));
 
-                    // The media_images and toy_images were not filtered with marked-to-delete ones on the client side because a imagesToDelete array was needed anyway so they can be removed on Cloudinary on the server side. We might as well filter them here.
-
-                    // Remove images from media_images array
-                    media_images = media_images.filter((img: string) => !imagesToDeleteArray.includes(img));
-                    // Remove images from toy_images array
-                    toy_images = toy_images.filter((img: string) => !imagesToDeleteArray.includes(img));
-
-                    // Execute image deletion from Cloudinary
-                    if (imagesToDeleteArray.length) {
-                        const deleteResults = await Promise.allSettled(imagesToDeleteArray.map(url => removeImages([url])));
-                        const failedDeletes = deleteResults.filter(r => r.status === "rejected");
-                        if (failedDeletes.length) {
-                            return handleError(res, {
-                                type: "error",
-                                status: 500,
-                                code: "CLOUDINARY_DELETE_FAILED",
-                                message: "Failed removing some images from storage",
-                                data: failedDeletes
-                            });
-                        }
-                    }
-                    console.log(`Deleted ${imagesToDeleteArray.length} images from Cloudinary`);
+                            // Delete from Cloudinary
+                            const deletePromises = imagesToDeleteArray.map(url => removeImages([url]));
+                            await Promise.all(deletePromises);
+                            deletedImageUrls.push(...imagesToDeleteArray);
+                            console.log(`Deleted ${imagesToDeleteArray.length} images from Cloudinary`);
+                            return imagesToDeleteArray;
+                        },
+                        compensate: async () => {
+                            // Note: Cannot restore deleted Cloudinary images, 
+                            // but we can revert database changes in subsequent steps
+                            console.log('[Saga] Cannot restore deleted Cloudinary images, relying on database rollback');
+                        },
+                        retries: 2
+                    });
                 }
             } catch (e) {
                 return handleError(res, {
@@ -675,20 +707,16 @@ export const editUserCollectionById = async (req: Request, res: Response) => {
             }
         }
 
-        // Handle file uploads - now req.files is an object with field names as keys
-        if (req.files && typeof req.files === 'object' && !Array.isArray(req.files)) {
-            console.log("Processing uploaded files...");
+        // Step 2: Upload new media images if provided
+        if (req.files && typeof req.files === 'object' && !Array.isArray(req.files) && req.files['media_images']) {
+            const mediaFiles = Array.isArray(req.files['media_images'])
+                ? req.files['media_images']
+                : [req.files['media_images']];
 
-            // Handle media_images files
-            if (req.files['media_images']) {
-                const mediaFiles = Array.isArray(req.files['media_images'])
-                    ? req.files['media_images']
-                    : [req.files['media_images']];
-
-                console.log(`Processing ${mediaFiles.length} media files`);
-
-                const mediaUploadPromises = mediaFiles.map(async (file) => {
-                    try {
+            saga.addStep(EnhancedSagaTransaction.createCloudinaryUploadStep(
+                'upload_new_media_images',
+                async () => {
+                    const mediaUploadPromises = mediaFiles.map(async (file) => {
                         const imageUrl = await uploadImage(
                             file,
                             req.user,
@@ -696,28 +724,28 @@ export const editUserCollectionById = async (req: Request, res: Response) => {
                             `cybertron_codex/user_collection_images/media/${userId}`
                         );
                         return imageUrl;
-                    } catch (uploadError) {
-                        console.error("Error uploading media file:", uploadError);
-                        return null;
-                    }
-                });
+                    });
 
-                const mediaUploadResults = await Promise.all(mediaUploadPromises);
-                const successfulMediaUploads = mediaUploadResults.filter(url => url !== null) as string[];
-                media_images.push(...successfulMediaUploads);
-                console.log(`Successfully uploaded ${successfulMediaUploads.length} out of ${mediaFiles.length} media files`);
-            }
+                    const uploadResults = await Promise.all(mediaUploadPromises);
+                    const successfulUploads = uploadResults.filter(url => url !== null) as string[];
+                    media_images.push(...successfulUploads);
+                    console.log(`Successfully uploaded ${successfulUploads.length} out of ${mediaFiles.length} media files`);
+                    return successfulUploads;
+                },
+                newUploadedMediaUrls
+            ));
+        }
 
-            // Handle toy_images files
-            if (req.files['toy_images']) {
-                const toyFiles = Array.isArray(req.files['toy_images'])
-                    ? req.files['toy_images']
-                    : [req.files['toy_images']];
+        // Step 3: Upload new toy images if provided
+        if (req.files && typeof req.files === 'object' && !Array.isArray(req.files) && req.files['toy_images']) {
+            const toyFiles = Array.isArray(req.files['toy_images'])
+                ? req.files['toy_images']
+                : [req.files['toy_images']];
 
-                console.log(`Processing ${toyFiles.length} toy files`);
-
-                const toyUploadPromises = toyFiles.map(async (file) => {
-                    try {
+            saga.addStep(EnhancedSagaTransaction.createCloudinaryUploadStep(
+                'upload_new_toy_images',
+                async () => {
+                    const toyUploadPromises = toyFiles.map(async (file) => {
                         const imageUrl = await uploadImage(
                             file,
                             req.user,
@@ -725,71 +753,85 @@ export const editUserCollectionById = async (req: Request, res: Response) => {
                             `cybertron_codex/user_collection_images/toy/${userId}`
                         );
                         return imageUrl;
-                    } catch (uploadError) {
-                        console.error("Error uploading toy file:", uploadError);
-                        return null;
-                    }
-                });
+                    });
 
-                const toyUploadResults = await Promise.all(toyUploadPromises);
-                const successfulToyUploads = toyUploadResults.filter(url => url !== null) as string[];
-                toy_images.push(...successfulToyUploads);
-                console.log(`Successfully uploaded ${successfulToyUploads.length} out of ${toyFiles.length} toy files`);
+                    const uploadResults = await Promise.all(toyUploadPromises);
+                    const successfulUploads = uploadResults.filter(url => url !== null) as string[];
+                    toy_images.push(...successfulUploads);
+                    console.log(`Successfully uploaded ${successfulUploads.length} out of ${toyFiles.length} toy files`);
+                    return successfulUploads;
+                },
+                newUploadedToyUrls
+            ));
+        }
+
+        // Step 4: Update MongoDB document
+        saga.addStep(EnhancedSagaTransaction.createMongoStep(
+            'update_collection_document',
+            async () => {
+                // Store original data for rollback
+                originalCollectionData = existingCollectionItem.toObject();
+
+                // Build the update object
+                const updateData: any = {};
+
+                // Only update fields that are provided
+                if (character_name !== undefined) updateData.character_name = character_name;
+                if (character_primary_faction !== undefined) updateData.character_primary_faction = character_primary_faction;
+                if (character_description !== undefined) updateData.character_description = character_description;
+                if (toy_line !== undefined) updateData.toy_line = toy_line;
+                if (toy_class !== undefined) updateData.toy_class = toy_class;
+                if (collection_notes !== undefined) updateData.collection_notes = collection_notes;
+                if (acquisition_date !== undefined) {
+                    updateData.acquisition_date = acquisition_date ? new Date(acquisition_date) : null;
+                }
+                if (acquisition_location !== undefined) updateData.acquisition_location = acquisition_location;
+                if (isPublic !== undefined) updateData.public = isPublic;
+
+                // Include price and currency when provided
+                if (priceVal !== undefined) updateData.price = priceVal;
+                if (currencyVal !== undefined) updateData.currency = currencyVal;
+
+                // Always update arrays (they might have been modified by file uploads or deletions)
+                updateData.media_images = media_images;
+                updateData.toy_images = toy_images;
+                updateData.alt_character_name = alt_character_name;
+
+                console.log("Final data to update:", JSON.stringify(updateData, null, 2));
+
+                // Update the collection
+                updatedCollection = await UserCollectionModel.findOneAndUpdate(
+                    { _id: collectionItemId, user_profile_id: userProfileId },
+                    updateData,
+                    { new: true }
+                );
+
+                if (!updatedCollection) {
+                    throw new Error("Collection not found or update failed");
+                }
+
+                console.log("Collection updated successfully:", updatedCollection);
+                return updatedCollection;
+            },
+            async () => {
+                // Compensating action: Restore original document state
+                if (originalCollectionData) {
+                    console.log(`[Saga] Restoring original collection data for ID: ${collectionItemId}`);
+                    await UserCollectionModel.findByIdAndUpdate(collectionItemId, originalCollectionData);
+                }
             }
-        }
+        ));
 
-        // Build the update object
-        const updateData: any = {};
+        // Execute the saga
+        const result = await saga.execute();
 
-        // Only update fields that are provided
-        if (character_name !== undefined) updateData.character_name = character_name;
-        if (character_primary_faction !== undefined) updateData.character_primary_faction = character_primary_faction;
-        if (character_description !== undefined) updateData.character_description = character_description;
-        if (toy_line !== undefined) updateData.toy_line = toy_line;
-        if (toy_class !== undefined) updateData.toy_class = toy_class;
-        if (collection_notes !== undefined) updateData.collection_notes = collection_notes;
-        if (acquisition_date !== undefined) {
-            updateData.acquisition_date = acquisition_date ? new Date(acquisition_date) : null;
-        }
-        if (acquisition_location !== undefined) updateData.acquisition_location = acquisition_location;
-        if (isPublic !== undefined) updateData.public = isPublic;
-
-        // Include price and currency when provided
-        if (priceVal !== undefined) updateData.price = priceVal;
-        if (currencyVal !== undefined) updateData.currency = currencyVal;
-
-        // Always update arrays (they might have been modified by file uploads or deletions)
-        updateData.media_images = media_images;
-        updateData.toy_images = toy_images;
-        updateData.alt_character_name = alt_character_name;
-
-        console.log("Final data to update:", JSON.stringify(updateData, null, 2));
-
-        // Update the collection
-        const updatedCollection = await UserCollectionModel.findOneAndUpdate(
-            { _id: collectionItemId, user_profile_id: userProfileId },
-            updateData,
-            { new: true }
-        );
-
-        if (!updatedCollection) {
-            handleError(res, {
-                type: 'error',
-                status: 404,
-                code: 'COLLECTION_NOT_FOUND',
-                message: "Collection not found or update failed"
-            });
-            return;
-        }
-        console.log("Collection updated successfully:", updatedCollection);
         return handleSuccess(res, {
             type: 'success',
             status: 200,
             code: 'COLLECTION_UPDATED',
             message: "Collection updated successfully",
-            data: updatedCollection
+            data: result
         });
-
 
     } catch (error) {
         console.error("Error updating user collection:", error);
@@ -831,42 +873,103 @@ export const deleteUserCollectionItem = async (req: Request, res: Response) => {
             return res.status(403).json({ error: "Unauthorized to delete this collection" });
         }
 
-        // Remove associated images from Cloudinary
-        const mediaImages = collectionItem.media_images || [];
-        const toyImages = collectionItem.toy_images || [];
-        const allImages = [...mediaImages, ...toyImages];
+        // Initialize Saga Transaction
+        const saga = new EnhancedSagaTransaction(true);
+        let deletedCollection: any = null;
+        let deletedComments: any[] = [];
+        let deletedFavorites: any[] = [];
+        const imagesToDelete = [...(collectionItem.media_images || []), ...(collectionItem.toy_images || [])];
 
-        if (allImages.length > 0) {
-            await removeImages(allImages);
-        }
-
-        // Delete the collection from the database
-        const result = await UserCollectionModel.findByIdAndDelete(itemId);
-        if (result) {
-            // Clean up related documents: comments and favorites referencing this collection
-            try {
+        // Step 1: Delete related comments
+        saga.addStep(EnhancedSagaTransaction.createMongoStep(
+            'delete_collection_comments',
+            async () => {
+                // Store comments for potential restore
+                deletedComments = await CollectionCommentModel.find({ collection_item_id: itemId }).lean();
                 const commentsDeleted = await CollectionCommentModel.deleteMany({ collection_item_id: itemId });
-                const favoritesDeleted = await UserFavoriteModel.deleteMany({ collection_item_id: itemId });
-                console.log(`Deleted collection ${itemId} and cleaned up ${commentsDeleted.deletedCount || 0} comments and ${favoritesDeleted.deletedCount || 0} favorites`);
-            } catch (cleanupErr) {
-                // Log cleanup failures but still return success for the collection deletion
-                console.error('Failed to clean up related comments/favorites for collection', itemId, cleanupErr);
+                console.log(`Deleted ${commentsDeleted.deletedCount || 0} comments for collection ${itemId}`);
+                return commentsDeleted;
+            },
+            async () => {
+                // Compensating action: Restore deleted comments
+                if (deletedComments.length > 0) {
+                    console.log(`[Saga] Restoring ${deletedComments.length} comments for collection ${itemId}`);
+                    await CollectionCommentModel.insertMany(deletedComments);
+                }
             }
+        ));
 
-            return handleSuccess(res, {
-                type: 'success',
-                status: 200,
-                code: 'COLLECTION_DELETED',
-                message: "Collection item deleted successfully"
-            });
-        } else {
-            return handleError(res, {
-                type: 'error',
-                status: 404,
-                code: 'NOT_FOUND',
-                message: "Error deleting collection item"
+        // Step 2: Delete related favorites
+        saga.addStep(EnhancedSagaTransaction.createMongoStep(
+            'delete_collection_favorites',
+            async () => {
+                // Store favorites for potential restore
+                deletedFavorites = await UserFavoriteModel.find({ collection_item_id: itemId }).lean();
+                const favoritesDeleted = await UserFavoriteModel.deleteMany({ collection_item_id: itemId });
+                console.log(`Deleted ${favoritesDeleted.deletedCount || 0} favorites for collection ${itemId}`);
+                return favoritesDeleted;
+            },
+            async () => {
+                // Compensating action: Restore deleted favorites
+                if (deletedFavorites.length > 0) {
+                    console.log(`[Saga] Restoring ${deletedFavorites.length} favorites for collection ${itemId}`);
+                    await UserFavoriteModel.insertMany(deletedFavorites);
+                }
+            }
+        ));
+
+        // Step 3: Delete images from Cloudinary
+        if (imagesToDelete.length > 0) {
+            saga.addStep({
+                name: 'delete_cloudinary_images',
+                execute: async () => {
+                    console.log(`Deleting ${imagesToDelete.length} images from Cloudinary`);
+                    await removeImages(imagesToDelete);
+                    return imagesToDelete;
+                },
+                compensate: async () => {
+                    // Note: Cannot restore deleted Cloudinary images
+                    console.log('[Saga] Cannot restore deleted Cloudinary images');
+                },
+                retries: 2
             });
         }
+
+        // Step 4: Delete the collection document
+        saga.addStep(EnhancedSagaTransaction.createMongoStep(
+            'delete_collection_document',
+            async () => {
+                // Store collection for potential restore
+                deletedCollection = collectionItem.toObject();
+                const result = await UserCollectionModel.findByIdAndDelete(itemId);
+                if (!result) {
+                    throw new Error("Failed to delete collection document");
+                }
+                console.log(`Collection ${itemId} deleted successfully`);
+                return result;
+            },
+            async () => {
+                // Compensating action: Restore deleted collection
+                if (deletedCollection) {
+                    console.log(`[Saga] Restoring collection document: ${itemId}`);
+                    // Remove _id to allow Mongoose to create a new one, but we need the original _id
+                    const { _id, ...collectionData } = deletedCollection;
+                    const restoredCollection = new UserCollectionModel({ ...collectionData, _id });
+                    await restoredCollection.save();
+                }
+            }
+        ));
+
+        // Execute the saga
+        await saga.execute();
+
+        return handleSuccess(res, {
+            type: 'success',
+            status: 200,
+            code: 'COLLECTION_DELETED',
+            message: "Collection item deleted successfully"
+        });
+
     } catch (error) {
         console.error("Error deleting collection item:", error);
         return handleError(res, {
