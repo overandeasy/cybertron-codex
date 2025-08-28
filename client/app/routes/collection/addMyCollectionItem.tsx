@@ -239,7 +239,7 @@ export default function AddMyCollectionItem() {
         )
       );
 
-      console.log("Collection added successfully:", newCollection);
+      console.log("Collection added successfully");
       themeToast(
         "success",
         "Collection item added successfully!",

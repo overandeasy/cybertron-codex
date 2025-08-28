@@ -129,7 +129,7 @@ export default function EditMyProfile() {
 
     // Proceed with setting the new image
     const previewUrl = URL.createObjectURL(file);
-    console.log("New image URL:", previewUrl);
+    // console.log("New image URL:", previewUrl);
     setNewImageFile(file);
     setNewImage(previewUrl);
     setPreview(previewUrl);
@@ -160,9 +160,9 @@ export default function EditMyProfile() {
       }
       formData.append("images", JSON.stringify(images));
 
-      console.log("--- FormData to be sent ---");
-      for (let [key, value] of formData.entries()) console.log(key, value);
-      console.log("---------------------------");
+      // console.log("--- FormData to be sent ---");
+      // for (let [key, value] of formData.entries()) console.log(key, value);
+      // console.log("---------------------------");
 
       const res = await updateUserProfile(formData);
 
@@ -174,7 +174,7 @@ export default function EditMyProfile() {
           "/user/my-profile",
           navigate
         );
-        console.log("Response from updateUserProfile:", res);
+        // console.log("Response from updateUserProfile:", res);
         return;
       }
 

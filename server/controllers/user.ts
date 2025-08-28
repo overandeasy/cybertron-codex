@@ -11,7 +11,7 @@ import { z } from "zod";
 
 export const signUp = async (req: Request, res: Response) => {
     try {
-        console.log("Registering user with data:", req.body);
+        console.log("Registering user with data from request body");
 
         // Zod schema for sign up validation
         const signUpSchema = z.object({
@@ -59,9 +59,9 @@ export const signUp = async (req: Request, res: Response) => {
         });
 
         const token = generateToken(registeredUser._id.toString(), registeredUser.email);
-        console.log("Registered user:", registeredUser);
-        console.log("Registered user profile:", registeredUserProfile);
-        console.log("Generated token:", token);
+        // console.log("Registered user:", registeredUser);
+        // console.log("Registered user profile:", registeredUserProfile);
+        // console.log("Generated token:", token);
         console.log("User registered successfully");
         console.log("User profile created successfully");
 
@@ -170,7 +170,12 @@ export const getAllUserProfiles = async (req: Request, res: Response) => {
         // console.log("Requested user: ", req.user);
         console.log("Requested user ID: ", req.user?._id.toString());
         if (!req.user) {
-            return res.status(401).json({ error: "Unauthorized access" });
+            return handleError(res, {
+                type: 'error',
+                status: 401,
+                code: 'UNAUTHORIZED',
+                message: "Unauthorized access"
+            });
         }
         const profiles = await UserProfileModel.find({
         }).populate('user_id', "email active");
@@ -239,7 +244,7 @@ export const getActiveUserProfile = async (req: Request, res: Response) => {
 export const updateUserProfile = async (req: Request, res: Response) => {
     try {
         // First check if the user is authenticated
-        console.log("Updating user profile with data:", req.body);
+        console.log("Updating user profile with data from request body");
         if (!req.user) {
             return handleError(res, {
                 type: 'error',
@@ -434,7 +439,7 @@ export const updateUserProfile = async (req: Request, res: Response) => {
                     return currentUserProfile;
                 }
 
-                console.log("Final data to update:", JSON.stringify(dataToUpdate, null, 2));
+                // console.log("Final data to update:", JSON.stringify(dataToUpdate, null, 2));
                 updatedProfile = await UserProfileModel.findOneAndUpdate(
                     { user_id: req.user!._id },
                     dataToUpdate,
@@ -445,7 +450,7 @@ export const updateUserProfile = async (req: Request, res: Response) => {
                     throw new Error("Failed to update user profile");
                 }
 
-                console.log("User profile updated successfully:", updatedProfile);
+                console.log("User profile updated successfully");
                 return updatedProfile;
             },
             async () => {

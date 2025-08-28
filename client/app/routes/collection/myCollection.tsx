@@ -5,7 +5,6 @@ import CollectionCard from "~/components/CollectionCard/CollectionCard";
 import type { UserCollection } from "~/lib/zod";
 import type { Route } from "./+types/myCollection";
 import { PlusIcon } from "lucide-react";
-import { de } from "zod/v4/locales";
 
 export function meta({}: Route.MetaArgs) {
   return [

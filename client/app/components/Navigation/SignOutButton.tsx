@@ -12,7 +12,7 @@ function SignOutButton(props: React.ComponentProps<typeof Button>) {
       size="sm"
       onClick={() => {
         localStorage.removeItem("token");
-        console.log("User logged out");
+        console.log("User signed out");
         navigate("/");
       }}
     >

@@ -23,7 +23,7 @@ export async function clientLoader() {
   try {
     const allPublicCollections = await getAllPublicCollections();
     console.log(
-      `All Collections fetched on the client: ${allPublicCollections?.length || 0} items.`
+      `All public collections fetched on the client: ${allPublicCollections?.length || 0} items.`
     );
     return { allPublicCollections };
   } catch (error) {

@@ -22,7 +22,7 @@ export async function signIn(data: SignInFormData) {
         const successData: ApiResponse<{ registered: boolean; userProfile: UserProfile; token: string }> = await response.json();
         localStorage.setItem("token", successData.data!.token);
 
-        console.log("Sign-in successful", successData);
+        console.log("Sign-in successful");
         return successData.data; // The data object contains three properties: {registered: true, userProfile, token}
     } catch (error: unknown) {
         // isApiError is a type guard function to check if the error object conforms to the ApiResponse<null> structure.
@@ -65,7 +65,7 @@ export async function signUp(data: SignUpFormData) {
         }
         const successData: ApiResponse<{ authenticated: boolean; userProfile: UserProfile; token: string }> = await response.json();
         localStorage.setItem("token", successData.data!.token);
-        console.log("Sign-up successful", successData);
+        console.log("Sign-up successful");
         return successData.data; // The data object contains three properties: {registered: true, userProfile, token}
     } catch (error: any) {
         //The error object is typed as <ApiResponse<null>> as defined in server/utils/handleError.ts. Functions can leverage this type to handle errors consistently. 

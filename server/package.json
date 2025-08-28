@@ -7,7 +7,9 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "nodemon index.ts",
     "migrate:collection-comments": "echo \"Migration script has been archived. See server/scripts/archived/migrate_collection_comments.ts for audit only. Do not run.\"",
-    "verify:migration": "ts-node ./scripts/verify_migration.ts"
+    "verify:migration": "ts-node ./scripts/verify_migration.ts",
+    "build": "tsc",
+    "start": "node dist/index.js"
   },
   "keywords": [],
   "author": "",

@@ -136,7 +136,7 @@ export const getCollectionItemById = async (req: Request, res: Response) => {
             message: "Collection item retrieved successfully",
             data: collectionItem
         });
-        console.log(collectionItem);
+        console.log("Collection item retrieved successfully");
     } catch (error) {
         handleError(res, {
             type: 'error',
@@ -151,8 +151,8 @@ export const getCollectionItemById = async (req: Request, res: Response) => {
 
 export const addUserCollection = async (req: Request, res: Response) => {
     try {
-        console.log("Adding user collection with data:", req.body);
-        console.log("Files received:", req.files);
+        console.log("Adding user collection with data from request body");
+        console.log("Files received:", req.files?.length);
 
         if (!req.user || !req.user._id) {
             return handleError(res, {
@@ -351,12 +351,12 @@ export const addUserCollection = async (req: Request, res: Response) => {
                     public: isPublic
                 };
 
-                console.log("Final collection data to save:", JSON.stringify(collectionData, null, 2));
+                // console.log("Final collection data to save:", JSON.stringify(collectionData, null, 2));
 
                 // Create and save the new collection
                 const newCollection = new UserCollectionModel(collectionData);
                 savedCollection = await newCollection.save();
-                console.log("User collection added successfully:", savedCollection);
+                console.log("User collection added successfully.");
                 return savedCollection;
             },
             async () => {
@@ -489,10 +489,10 @@ export const removeFavorite = async (req: Request, res: Response) => {
 // Function for editing user collections
 export const editUserCollectionById = async (req: Request, res: Response) => {
     try {
-        console.log("Editing user collection with data:", req.body);
-        console.log("Files received:", req.files);
+        console.log("Editing user collection with data from request body");
+        console.log("Files received:", req.files?.length);
 
-        console.log("User profile retrieved on server: ", req.user);
+        console.log("User profile retrieved on server");
 
         if (!req.user || !req.user._id) {
             return handleSuccess(res, {
@@ -797,7 +797,7 @@ export const editUserCollectionById = async (req: Request, res: Response) => {
                 updateData.toy_images = toy_images;
                 updateData.alt_character_name = alt_character_name;
 
-                console.log("Final data to update:", JSON.stringify(updateData, null, 2));
+                // console.log("Final data to update:", JSON.stringify(updateData, null, 2));
 
                 // Update the collection
                 updatedCollection = await UserCollectionModel.findOneAndUpdate(
@@ -810,7 +810,7 @@ export const editUserCollectionById = async (req: Request, res: Response) => {
                     throw new Error("Collection not found or update failed");
                 }
 
-                console.log("Collection updated successfully:", updatedCollection);
+                console.log("Collection updated successfully");
                 return updatedCollection;
             },
             async () => {

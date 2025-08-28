@@ -48,10 +48,10 @@ export function meta({}: Route.MetaArgs) {
 export default function EditMyCollectionItem() {
   const navigate = useNavigate();
   const params = useParams();
-  console.log("EditMyCollectionItem params:", params);
+  // console.log("EditMyCollectionItem params:", params);
   const loaderData = useRouteLoaderData("routes/collection/layout");
   const collection = loaderData?.userCollection;
-  console.log("EditMyCollectionItem collection:", { collection });
+  // console.log("EditMyCollectionItem collection:", { collection });
 
   const userProfile = useRouteLoaderData("root")?.userProfile;
   // console.log("User profile in EditMyCollectionItem:", userProfile);
@@ -120,13 +120,13 @@ export default function EditMyCollectionItem() {
   const collectionItem: UserCollection | undefined = collection.find(
     (item: UserCollection) => item._id === params._id
   );
-  console.log("EditMyCollectionItem collection item:", collectionItem);
+  // console.log("EditMyCollectionItem collection item:", collectionItem);
 
   if (!collectionItem) return <div>Collection item not found</div>;
   // Check ownership
   const isOwner =
     userProfile.user_id._id === collectionItem.user_profile_id.user_id;
-  console.log("Item is owned by user:", isOwner);
+  // console.log("Item is owned by user:", isOwner);
   if (!isOwner) {
     return <Navigate to="/collection/my-collection" replace />;
   }

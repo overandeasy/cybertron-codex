@@ -128,7 +128,7 @@ export const deleteCollectionItem = async (collectionId: string) => {
         }
 
         const result: ApiResponse<null> = await response.json();
-        console.log("Collection item deleted successfully:", result);
+        console.log("Collection item deleted successfully");
         return result; // There is no .data property for this particular response. Returning the whole result object instead.
     } catch (error) {
         if (isApiError(error)) {

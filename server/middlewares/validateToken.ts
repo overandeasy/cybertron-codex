@@ -36,7 +36,8 @@ export const validateToken = async (req: Request, res: Response, next: NextFunct
     }
     try {
         const decodedJwt = jwt.verify(token, secret)
-        console.log("Decoded token:", decodedJwt);
+        // console.log("Decoded token:", decodedJwt);
+        console.log("Token validated and decoded");
         const authorizedUser = await AuthModel.findOne({ _id: decodedJwt.sub })
         if (!authorizedUser || !authorizedUser.active) {
             return handleError(res, {

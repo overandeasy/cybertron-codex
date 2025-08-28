@@ -12,7 +12,7 @@ export function meta({}: Route.MetaArgs) {
 
 export default function LandingPage({ loaderData }: Route.ComponentProps) {
   const { userProfile } = useRouteLoaderData("root");
-  console.log("User profile on landing page:", userProfile);
+  // console.log("User profile on landing page:", userProfile);
   return (
     <div className="relative h-screen w-screen overflow-hidden">
       {/* Three options for background */}
