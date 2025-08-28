@@ -209,7 +209,16 @@ export const getActiveUserProfile = async (req: Request, res: Response) => {
                 message: "Unauthorized access"
             });
         }
+        const queryStart = Date.now();
         const activeUserProfile = await UserProfileModel.findOne({ user_id: req.user._id.toString() }).populate('user_id', "email active");
+        console.log(`[getActiveUserProfile] DB query took ${Date.now() - queryStart}ms`);
+
+        try {
+            const size = JSON.stringify(activeUserProfile).length;
+            console.log(`[getActiveUserProfile] payload size ${size} bytes`);
+        } catch (e) {
+            // ignore
+        }
 
         if (!activeUserProfile) {
             return handleError(res, {

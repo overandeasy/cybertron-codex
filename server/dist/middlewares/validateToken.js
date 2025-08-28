@@ -41,7 +41,9 @@ const validateToken = (req, res, next) => __awaiter(void 0, void 0, void 0, func
         const decodedJwt = jsonwebtoken_1.default.verify(token, secret);
         // console.log("Decoded token:", decodedJwt);
         console.log("Token validated and decoded");
+        const lookupStart = Date.now();
         const authorizedUser = yield auth_1.AuthModel.findOne({ _id: decodedJwt.sub });
+        console.log(`[validateToken] Auth lookup took ${Date.now() - lookupStart}ms`);
         if (!authorizedUser || !authorizedUser.active) {
             return (0, handleServerApiResponse_1.handleError)(res, {
                 type: 'error',
