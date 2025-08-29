@@ -160,9 +160,9 @@ export default function EditMyProfile() {
       }
       formData.append("images", JSON.stringify(images));
 
-      // console.log("--- FormData to be sent ---");
-      // for (let [key, value] of formData.entries()) console.log(key, value);
-      // console.log("---------------------------");
+      console.log("--- FormData to be sent ---");
+      for (let [key, value] of formData.entries()) console.log(key, value);
+      console.log("---------------------------");
 
       const res = await updateUserProfile(formData);
 

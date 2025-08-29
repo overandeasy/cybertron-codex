@@ -50,7 +50,8 @@ export function UserProfileForm({
   //   console.log("userProfile.social_links:", userProfile.social_links);
 
   const form = useForm<UserProfileFormData>({
-    resolver: zodResolver(userProfileFormSchema),
+    // Cast resolver to any to avoid TS incompatibilities between resolver types
+    resolver: zodResolver(userProfileFormSchema) as any,
     defaultValues: {
       first_name: userProfile.first_name ?? "",
       last_name: userProfile.last_name ?? "",
@@ -60,7 +61,7 @@ export function UserProfileForm({
       faction: userProfile.faction ?? undefined,
       species: userProfile.species ?? "Terran",
       bio: userProfile.bio ?? "",
-      social_links: userProfile.social_links ?? [{ key: undefined, value: "" }],
+      social_links: userProfile.social_links ?? [{ key: "website", value: "" }],
     },
   });
 
@@ -77,10 +78,9 @@ export function UserProfileForm({
         faction: userProfile.faction ?? undefined,
         species: userProfile.species ?? "Terran",
         bio: userProfile.bio ?? "",
-        social_links:
-          userProfile.social_links?.sort((a, b) =>
-            a.key.localeCompare(b.key)
-          ) ?? [], // Sort social links by key so it appears consistent.
+        social_links: userProfile.social_links?.sort((a, b) =>
+          a.key.localeCompare(b.key)
+        ) ?? [{ key: "website", value: "" }], // Sort social links by key so it appears consistent.
       });
     }
   }, [userProfile, form.reset]);
@@ -308,6 +308,7 @@ export function UserProfileForm({
                           ))}
                         </SelectContent>
                       </Select>
+                      <FormMessage />
                     </FormItem>
                   )}
                 />
@@ -319,6 +320,7 @@ export function UserProfileForm({
                   render={({ field }) => (
                     <FormItem>
                       <Input {...field} placeholder="https://..." />
+                      <FormMessage />
                     </FormItem>
                   )}
                 />

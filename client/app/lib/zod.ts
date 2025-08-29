@@ -73,7 +73,9 @@ export const SOCIAL_KEYS = [
 
 const SocialLinkSchema = z.object({
     key: z.enum(SOCIAL_KEYS),
-    value: z.string().min(1, "Link should not be empty")
+    // apply length validation before transform so .min() is available,
+    // then trim the value via transform
+    value: z.string().min(1, "Link should not be empty").transform(v => v.trim())
 });
 
 export const userProfileFormSchema = z.object({
@@ -111,18 +113,30 @@ export const userProfileFormSchema = z.object({
     faction: z.enum(['Autobot', 'Decepticon']).optional(),
     species: z.enum(['Cybertronian', 'Terran', 'Other']).optional(),
     social_links: z
-        .array(SocialLinkSchema)
-        .refine((arr) => {
-            const keys = arr.map((item) => item.key);
+        .array(
+            SocialLinkSchema
+        )
+        .transform(arr => {
+            if (!arr) return arr;
+            // Trim keys/values but DO NOT remove rows here — removing rows before validation
+            // hides per-field errors (e.g., empty value). Keep rows so zod can report
+            // field-level errors which the form UI will display.
+            return arr.map(a => ({
+                ...a,
+                key: typeof a.key === 'string' ? a.key.trim() : a.key,
+                value: typeof a.value === 'string' ? a.value.trim() : a.value,
+            }));
+        })
+        .refine(arr => {
+            if (!arr) return true;
+            // only consider non-empty keys for duplicate check
+            const keys = arr.map(item => (item.key ?? '').trim()).filter(k => k.length > 0);
             return new Set(keys).size === keys.length;
         }, {
             message: 'Duplicate social link keys are not allowed',
             path: ['social_links']
-        }).optional()
-}).refine(data => {
-    // Ensure at least one social link is provided if social_links is not empty
-    const links = data.social_links;
-    return !links || Object.values(links).some(link => link);
+        })
+        .optional()
 });
 
 
