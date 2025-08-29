@@ -17,6 +17,7 @@ import { Button } from "./ui/button";
 import { useTransition } from "react";
 import { signIn } from "~/api/auth";
 import { useNavigate } from "react-router";
+import { isApiError } from "~/lib/utils";
 
 // Handle form submission
 
@@ -34,13 +35,27 @@ function SignInForm() {
 
   const onSubmit = () => {
     startSignInTransition(async () => {
-      const signInResult = await signIn(form.getValues());
-      signInResult instanceof Error
-        ? form.setError("root", {
+      try {
+        const data = await signIn(form.getValues());
+        // success path
+        form.reset();
+        route("/home");
+      } catch (err: any) {
+        console.error("Sign-in failed:", err);
+        // If your helper provides a typed API error, show its message, otherwise a friendly network message
+        if (isApiError(err)) {
+          form.setError("root", {
             type: "manual",
-            message: `An error occured. Please try again. ${signInResult.message}`,
-          })
-        : (form.reset(), route("/home"));
+            message: err.message || "Sign-in failed. Check credentials.",
+          });
+        } else {
+          form.setError("root", {
+            type: "manual",
+            message:
+              "Network error. Please check your connection and try again.",
+          });
+        }
+      }
     });
   };
   return (

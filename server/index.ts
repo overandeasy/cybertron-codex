@@ -109,6 +109,25 @@ export default async function handler(req: any, res: any) {
     }
 }
 
+
+// Start a long-lived server when run directly (local development / non-serverless)
+export async function startLocalServer(port = Number(process.env.PORT || 5001)) {
+    try {
+        await connectDB();
+        app.listen(port, () => {
+            console.log(`Server is running on http://localhost:${port}`);
+        });
+    } catch (err) {
+        console.error('Failed to start local server:', err);
+        throw err;
+    }
+}
+
+// If file executed directly (node dist/index.js), start a local server
+if (require.main === module) {
+    startLocalServer().catch(() => process.exit(1));
+}
+
 // Support CommonJS require() loading in some Vercel runtimes by assigning the
 // handler to module.exports as well. This makes the function discoverable
 // whether the runtime expects CommonJS or ESM-style default exports.
