@@ -37,7 +37,7 @@ export default function SignUp() {
                 to="/auth/sign-in"
                 className="text-blue-500 hover:underline"
               >
-                Sign Up
+                Sign In
               </Link>
             </p>
           </CardAction>
