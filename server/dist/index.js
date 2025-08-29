@@ -13,6 +13,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = handler;
+exports.startLocalServer = startLocalServer;
 const express_1 = __importDefault(require("express"));
 const cors_1 = __importDefault(require("cors"));
 const user_1 = __importDefault(require("./routes/user"));
@@ -115,6 +116,25 @@ function handler(req, res) {
             }
         }
     });
+}
+// Start a long-lived server when run directly (local development / non-serverless)
+function startLocalServer() {
+    return __awaiter(this, arguments, void 0, function* (port = Number(process.env.PORT || 5001)) {
+        try {
+            yield connectDB();
+            app.listen(port, () => {
+                console.log(`Server is running on http://localhost:${port}`);
+            });
+        }
+        catch (err) {
+            console.error('Failed to start local server:', err);
+            throw err;
+        }
+    });
+}
+// If file executed directly (node dist/index.js), start a local server
+if (require.main === module) {
+    startLocalServer().catch(() => process.exit(1));
 }
 // Support CommonJS require() loading in some Vercel runtimes by assigning the
 // handler to module.exports as well. This makes the function discoverable
